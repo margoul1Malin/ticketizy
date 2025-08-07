@@ -1,0 +1,92 @@
+{
+  "name": "ticketizy",
+  "productName": "Ticketizy",
+  "version": "1.0.0",
+  "description": "Générateur d'étiquettes d'expédition avec OCR",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "electron .",
+    "rebuild": "npx @electron/rebuild --only canvas",
+    "build": "electron-builder",
+    "build:win": "npm run rebuild && electron-builder --win",
+    "dist": "electron-builder --publish=never"
+  },
+  "keywords": [],
+  "author": {
+    "name": "margoul1Malin",
+    "email": "github.pydoctor@gmail.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^3.1.2",
+    "electron-squirrel-startup": "^1.0.1",
+    "jsbarcode": "^3.12.1",
+    "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "canvas": {
+      "os": {
+        "win32": {
+          "libpng": "1.6.37",
+          "jpeg": "9.4.0"
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.3",
+    "@electron-forge/maker-deb": "^7.8.3",
+    "@electron-forge/maker-rpm": "^7.8.3",
+    "@electron-forge/maker-squirrel": "^7.8.3",
+    "@electron-forge/maker-zip": "^7.8.3",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.3",
+    "@electron-forge/plugin-fuses": "^7.8.3",
+    "@electron/fuses": "^1.8.0",
+    "@electron/rebuild": "^3.7.2",
+    "electron": "37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.ticketizy.app",
+    "productName": "Ticketizy",
+    "directories": {
+      "output": "dist"
+    },
+    "icon": "icon.jpg",
+    "asarUnpack": [
+      "node_modules/canvas/**/*"
+    ],
+    "buildDependenciesFromSource": true,
+    "npmRebuild": true,
+    "files": [
+      "src/**/*",
+      "node_modules/**/*",
+      "data.json",
+      "icon.jpg",
+      "ModeleEtiquetteExportation2.png",
+      "*.png",
+      "*.psd",
+      "*.ppsx",
+      "*.pdf",
+      "*.jpeg",
+      "*.jpg"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "electronVersion": "37.2.6",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

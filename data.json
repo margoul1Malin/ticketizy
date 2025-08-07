@@ -1,0 +1,76 @@
+{
+  "014454078XXXXEUQLJP": {
+    "model": {
+      "OLED77C54LA": {
+        "1": {
+          "wo": "4GMGL05L",
+          "pattern": "406XXXESXXXX",
+          "sn": {
+            "1": "406MACESVF75",
+            "2": "406MABTSVG05",
+            "3": "406MAAKSVG24"
+          }
+        },
+        "2": {
+          "wo": "4EMGL11L",
+          "pattern": "404XXXNQXXXX",
+          "sn": {
+            "1": "404M4PNQOY84",
+            "2": "404M4BTQ0W81"
+          }
+        },
+        "1754591263734": {
+          "wo": "4ABZ288L",
+          "pattern": "408XXXJCXXXX",
+          "sn": {
+            "1754591586492": "408WJDJC44LD"
+          }
+        }
+      },
+      "OLED65G45LW": {
+        "1754594118836": {
+          "wo": "4GMGL05L",
+          "pattern": "406XXXESXXXX",
+          "sn": {
+            "1754594118836": "406MACESVF75",
+            "1754594118837": "406MAAKSVG24",
+            "1754594142494": "406MABTSVG05"
+          }
+        },
+        "1754594118837": {
+          "wo": "4EMGL11L",
+          "pattern": "404XXXNQXXXX",
+          "sn": {
+            "1754594118837": "404M4BTQ0W81",
+            "1754594142494": "404M4PNQOY84",
+            "1754594285957": "404M4PNQ0Y84"
+          }
+        },
+        "1754595257646": {
+          "wo": "4EMGL11LE",
+          "pattern": "404XXXTQXXXX",
+          "sn": {
+            "1754595257646": "404M4BTQOW81"
+          }
+        }
+      },
+      "OLED65G45LWZER": {
+        "1754594592160": {
+          "wo": "4GMGL05LZER",
+          "pattern": null,
+          "sn": {
+            "1754594592160": "406MAAKSVG24ZER",
+            "1754595207994": "azer"
+          }
+        },
+        "1754595257646": {
+          "wo": "4GMGL05L",
+          "pattern": null,
+          "sn": {
+            "1754595257646": "406MAAKSVG242"
+          }
+        }
+      }
+    }
+  }
+}

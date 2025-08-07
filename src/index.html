@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticketizy - Générateur d'Étiquettes</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🏷️ Ticketizy</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-page="import">
+                    📸 Import & OCR
+                </button>
+                <button class="nav-btn" data-page="edit">
+                    📝 Édition JSON
+                </button>
+                <button class="nav-btn" data-page="generate">
+                    🏷️ Génération Étiquettes
+                </button>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Page Import & OCR -->
+            <div class="page" id="importPage">
+                <header>
+                    <h1>📸 Import & OCR</h1>
+                    <p>Traitement des images et extraction des données</p>
+                </header>
+
+                <!-- Configuration API -->
+                <section class="config-section">
+                    <h2>🔧 Configuration API</h2>
+                    <div class="config-form">
+                        <label for="apiKeyInput">Clé API Gemini :</label>
+                        <input type="password" id="apiKeyInput" class="api-input" placeholder="Entrez votre clé API Gemini">
+                        <button id="saveApiKeyBtn" class="btn btn-primary">💾 Sauvegarder</button>
+                        <p class="config-info">La clé API est sauvegardée localement et ne sera pas partagée.</p>
+                    </div>
+                </section>
+
+                <!-- Import d'images -->
+                <section class="import-section">
+                    <h2>📸 Import d'Images</h2>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-content">
+                            <p>📁 Glissez-déposez vos images ici</p>
+                            <p>ou</p>
+                            <button id="selectFilesBtn" class="btn btn-primary">📂 Sélectionner des fichiers</button>
+                            <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="file-list" id="fileList"></div>
+                </section>
+
+                <!-- Zone de traitement -->
+                <section class="processing-section" id="processingSection" style="display: none;">
+                    <h2>⚙️ Traitement en cours...</h2>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <p id="progressText">Initialisation...</p>
+                    </div>
+                </section>
+
+                <!-- Résultats -->
+                <section class="results-section" id="resultsSection" style="display: none;">
+                    <h2>📊 Résultats</h2>
+                    <div class="results-grid">
+                        <!-- Summary of processed files will be injected here -->
+                    </div>
+                    
+                    <div class="actions">
+                        <button id="importToJsonBtn" class="btn btn-success">📊 Importer dans JSON</button>
+                        <button id="generateLabelBtn" class="btn btn-primary">🏷️ Générer Étiquette</button>
+                        <button id="generateAllLabelsBtn" class="btn btn-warning">🏷️ Générer Toutes les Étiquettes</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Page Édition JSON -->
+            <div class="page" id="editPage" style="display: none;">
+                <header>
+                    <h1>📝 Édition JSON</h1>
+                    <p>Modification manuelle des données</p>
+                </header>
+
+                <section class="json-editor-section">
+                    <div class="json-controls">
+                        <button id="saveJsonBtn" class="btn btn-success">💾 Sauvegarder JSON</button>
+                    </div>
+                    
+                    <div class="json-structure">
+                        <div class="add-etiquette-section">
+                            <h3>📦 Étiquettes</h3>
+                            <button id="addEtiquetteBtn" class="btn btn-success">➕ Ajouter une étiquette</button>
+                        </div>
+                        
+                        <div class="etiquettes-container" id="etiquettesContainer">
+                            <!-- Les étiquettes seront générées ici dynamiquement -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Page Génération Étiquettes -->
+            <div class="page" id="generatePage" style="display: none;">
+                <header>
+                    <h1>🏷️ Génération Étiquettes</h1>
+                    <p>Générer des étiquettes depuis le JSON</p>
+                </header>
+
+                <section class="generate-section">
+                    <div class="generate-options">
+                        <h2>🎯 Options de génération</h2>
+                        
+                        <div class="option-group">
+                            <label>
+                                <input type="radio" name="generateOption" value="all" checked>
+                                Générer toutes les étiquettes
+                            </label>
+                        </div>
+                        
+                        <div class="option-group">
+                            <label>
+                                <input type="radio" name="generateOption" value="etiquette">
+                                Générer pour une étiquette spécifique
+                            </label>
+                            <select id="etiquetteSelect" class="generate-select" disabled>
+                                <option value="">Sélectionner une étiquette...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="option-group">
+                            <label>
+                                <input type="radio" name="generateOption" value="model">
+                                Générer pour un modèle spécifique
+                            </label>
+                            <select id="modelSelect" class="generate-select" disabled>
+                                <option value="">Sélectionner un modèle...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="option-group">
+                            <label>
+                                <input type="radio" name="generateOption" value="group">
+                                Générer pour un groupe spécifique
+                            </label>
+                            <select id="groupSelect" class="generate-select" disabled>
+                                <option value="">Sélectionner un groupe...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="generate-actions">
+                        <button id="generateLabelsBtn" class="btn btn-primary">🏷️ Générer les étiquettes</button>
+                    </div>
+                </section>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Modales -->
+    <div id="modalOverlay" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Titre</h3>
+                <button class="modal-close" id="modalCloseBtn">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Contenu de la modale -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancelBtn">Annuler</button>
+                <button class="btn btn-primary" id="modalConfirmBtn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
