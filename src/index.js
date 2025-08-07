@@ -88,6 +88,39 @@ ipcMain.handle('get-user-data-path', () => {
   return app.getPath('userData');
 });
 
+// Handler pour copier le modèle d'étiquette
+ipcMain.handle('copy-model-image', async () => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const modelDestPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+    
+    // Vérifier si le modèle existe déjà
+    if (fs.existsSync(modelDestPath)) {
+      return modelDestPath;
+    }
+    
+    // Essayer de copier depuis différents emplacements
+    const possiblePaths = [
+      path.join(__dirname, 'ModeleEtiquetteExportation2.png'),
+      path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png'),
+      path.join(__dirname, '..', '..', 'ModeleEtiquetteExportation2.png')
+    ];
+    
+    for (const sourcePath of possiblePaths) {
+      if (fs.existsSync(sourcePath)) {
+        fs.copyFileSync(sourcePath, modelDestPath);
+        console.log('Modèle copié vers:', modelDestPath);
+        return modelDestPath;
+      }
+    }
+    
+    throw new Error('Modèle d\'étiquette non trouvé dans les ressources');
+  } catch (error) {
+    console.error('Erreur lors de la copie du modèle:', error);
+    throw error;
+  }
+});
+
 // Fonction pour générer l'étiquette d'expédition
 async function generateShippingLabel(data) {
   try {
@@ -147,6 +180,34 @@ async function createLabelImage(data, outputPath) {
         // Si pas trouvé, essayer le chemin dans les ressources de l'app
         modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
         console.log('Tentative de chargement du modèle (chemin alternatif):', modelPath);
+        if (!fs.existsSync(modelPath)) {
+          // Si toujours pas trouvé, essayer de copier depuis les ressources vers le dossier utilisateur
+          const userDataPath = app.getPath('userData');
+          const modelDestPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+          
+          // Essayer de copier depuis différents emplacements
+          const possiblePaths = [
+            path.join(__dirname, 'ModeleEtiquetteExportation2.png'),
+            path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png'),
+            path.join(__dirname, '..', '..', 'ModeleEtiquetteExportation2.png')
+          ];
+          
+          let copied = false;
+          for (const sourcePath of possiblePaths) {
+            if (fs.existsSync(sourcePath)) {
+              fs.copyFileSync(sourcePath, modelDestPath);
+              console.log('Modèle copié vers:', modelDestPath);
+              modelPath = modelDestPath;
+              copied = true;
+              break;
+            }
+          }
+          
+          if (!copied) {
+            console.log('Aucun modèle trouvé dans les ressources');
+            modelPath = null;
+          }
+        }
       }
     } catch (error) {
       modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
@@ -154,10 +215,14 @@ async function createLabelImage(data, outputPath) {
     }
     let modelImage;
     try {
-      modelImage = await loadImage(modelPath);
-      // Dessiner le modèle en arrière-plan avec les dimensions exactes
-      ctx.drawImage(modelImage, 0, 0, 1000, 600);
-      console.log('Modèle d\'étiquette chargé avec succès:', modelPath);
+      if (modelPath && fs.existsSync(modelPath)) {
+        modelImage = await loadImage(modelPath);
+        // Dessiner le modèle en arrière-plan avec les dimensions exactes
+        ctx.drawImage(modelImage, 0, 0, 1000, 600);
+        console.log('Modèle d\'étiquette chargé avec succès:', modelPath);
+      } else {
+        throw new Error('Modèle non trouvé');
+      }
     } catch (error) {
       console.log('Modèle d\'étiquette non trouvé, création d\'une étiquette basique. Erreur:', error.message);
       // Si le modèle n'existe pas, créer une étiquette basique
