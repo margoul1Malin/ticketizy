@@ -173,45 +173,30 @@ async function createLabelImage(data, outputPath) {
     // Charger l'image du modèle d'étiquette
     let modelPath;
     try {
-      // Essayer d'abord le chemin relatif (pour le développement)
-      modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
-      console.log('Tentative de chargement du modèle:', modelPath);
+      // Essayer d'abord le chemin dans le dossier utilisateur (après installation)
+      const userDataPath = app.getPath('userData');
+      modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+      console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
+      
       if (!fs.existsSync(modelPath)) {
-        // Si pas trouvé, essayer le chemin dans les ressources de l'app
-        modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
-        console.log('Tentative de chargement du modèle (chemin alternatif):', modelPath);
+        // Si pas trouvé, essayer le chemin relatif (pour le développement)
+        modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
+        console.log('Tentative de chargement du modèle (développement):', modelPath);
+        
         if (!fs.existsSync(modelPath)) {
-          // Si toujours pas trouvé, essayer de copier depuis les ressources vers le dossier utilisateur
-          const userDataPath = app.getPath('userData');
-          const modelDestPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+          // Si pas trouvé, essayer le chemin dans les ressources de l'app
+          modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+          console.log('Tentative de chargement du modèle (ressources):', modelPath);
           
-          // Essayer de copier depuis différents emplacements
-          const possiblePaths = [
-            path.join(__dirname, 'ModeleEtiquetteExportation2.png'),
-            path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png'),
-            path.join(__dirname, '..', '..', 'ModeleEtiquetteExportation2.png')
-          ];
-          
-          let copied = false;
-          for (const sourcePath of possiblePaths) {
-            if (fs.existsSync(sourcePath)) {
-              fs.copyFileSync(sourcePath, modelDestPath);
-              console.log('Modèle copié vers:', modelDestPath);
-              modelPath = modelDestPath;
-              copied = true;
-              break;
-            }
-          }
-          
-          if (!copied) {
-            console.log('Aucun modèle trouvé dans les ressources');
+          if (!fs.existsSync(modelPath)) {
+            console.log('Aucun modèle trouvé');
             modelPath = null;
           }
         }
       }
     } catch (error) {
-      modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
-      console.log('Tentative de chargement du modèle (chemin de fallback):', modelPath);
+      console.log('Erreur lors de la recherche du modèle:', error.message);
+      modelPath = null;
     }
     let modelImage;
     try {
