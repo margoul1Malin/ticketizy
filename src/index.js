@@ -173,36 +173,62 @@ async function createLabelImage(data, outputPath) {
     // Charger l'image du modèle d'étiquette
     let modelPath;
     try {
+      console.log('=== DÉBUT RECHERCHE MODÈLE ===');
+      
       // Essayer d'abord le bureau de l'utilisateur (pour test)
       const desktopPath = app.getPath('desktop');
+      console.log('Chemin du bureau:', desktopPath);
       modelPath = path.join(desktopPath, 'ModeleEtiquetteExportation2.png');
       console.log('Tentative de chargement du modèle (bureau):', modelPath);
+      console.log('Le fichier existe sur le bureau ?', fs.existsSync(modelPath));
       
       if (!fs.existsSync(modelPath)) {
+        console.log('❌ Modèle non trouvé sur le bureau');
+        
         // Si pas trouvé sur le bureau, essayer le dossier utilisateur (après installation)
         const userDataPath = app.getPath('userData');
+        console.log('Chemin des données utilisateur:', userDataPath);
         modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
         console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
+        console.log('Le fichier existe dans userData ?', fs.existsSync(modelPath));
         
         if (!fs.existsSync(modelPath)) {
+          console.log('❌ Modèle non trouvé dans userData');
+          
           // Si pas trouvé, essayer le chemin relatif (pour le développement)
           modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
+          console.log('Chemin __dirname:', __dirname);
           console.log('Tentative de chargement du modèle (développement):', modelPath);
+          console.log('Le fichier existe en développement ?', fs.existsSync(modelPath));
           
           if (!fs.existsSync(modelPath)) {
+            console.log('❌ Modèle non trouvé en développement');
+            
             // Si pas trouvé, essayer le chemin dans les ressources de l'app
             modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
             console.log('Tentative de chargement du modèle (ressources):', modelPath);
+            console.log('Le fichier existe dans les ressources ?', fs.existsSync(modelPath));
             
             if (!fs.existsSync(modelPath)) {
+              console.log('❌ Modèle non trouvé dans les ressources');
               console.log('Aucun modèle trouvé');
               modelPath = null;
+            } else {
+              console.log('✅ Modèle trouvé dans les ressources');
             }
+          } else {
+            console.log('✅ Modèle trouvé en développement');
           }
+        } else {
+          console.log('✅ Modèle trouvé dans userData');
         }
+      } else {
+        console.log('✅ Modèle trouvé sur le bureau');
       }
+      
+      console.log('=== FIN RECHERCHE MODÈLE ===');
     } catch (error) {
-      console.log('Erreur lors de la recherche du modèle:', error.message);
+      console.log('❌ Erreur lors de la recherche du modèle:', error.message);
       modelPath = null;
     }
     let modelImage;
