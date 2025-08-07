@@ -138,15 +138,28 @@ async function createLabelImage(data, outputPath) {
     ctx.fillRect(0, 0, 1000, 600);
     
     // Charger l'image du modèle d'étiquette
-    const modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+    let modelPath;
+    try {
+      // Essayer d'abord le chemin relatif (pour le développement)
+      modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
+      console.log('Tentative de chargement du modèle:', modelPath);
+      if (!fs.existsSync(modelPath)) {
+        // Si pas trouvé, essayer le chemin dans les ressources de l'app
+        modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+        console.log('Tentative de chargement du modèle (chemin alternatif):', modelPath);
+      }
+    } catch (error) {
+      modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+      console.log('Tentative de chargement du modèle (chemin de fallback):', modelPath);
+    }
     let modelImage;
     try {
       modelImage = await loadImage(modelPath);
       // Dessiner le modèle en arrière-plan avec les dimensions exactes
       ctx.drawImage(modelImage, 0, 0, 1000, 600);
-      console.log('Modèle d\'étiquette chargé avec succès');
+      console.log('Modèle d\'étiquette chargé avec succès:', modelPath);
     } catch (error) {
-      console.log('Modèle d\'étiquette non trouvé, création d\'une étiquette basique');
+      console.log('Modèle d\'étiquette non trouvé, création d\'une étiquette basique. Erreur:', error.message);
       // Si le modèle n'existe pas, créer une étiquette basique
       ctx.fillStyle = 'black';
       ctx.font = 'bold 24px Arial';
