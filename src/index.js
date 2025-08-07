@@ -173,24 +173,31 @@ async function createLabelImage(data, outputPath) {
     // Charger l'image du modèle d'étiquette
     let modelPath;
     try {
-      // Essayer d'abord le chemin dans le dossier utilisateur (après installation)
-      const userDataPath = app.getPath('userData');
-      modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
-      console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
+      // Essayer d'abord le bureau de l'utilisateur (pour test)
+      const desktopPath = app.getPath('desktop');
+      modelPath = path.join(desktopPath, 'ModeleEtiquetteExportation2.png');
+      console.log('Tentative de chargement du modèle (bureau):', modelPath);
       
       if (!fs.existsSync(modelPath)) {
-        // Si pas trouvé, essayer le chemin relatif (pour le développement)
-        modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
-        console.log('Tentative de chargement du modèle (développement):', modelPath);
+        // Si pas trouvé sur le bureau, essayer le dossier utilisateur (après installation)
+        const userDataPath = app.getPath('userData');
+        modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+        console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
         
         if (!fs.existsSync(modelPath)) {
-          // Si pas trouvé, essayer le chemin dans les ressources de l'app
-          modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
-          console.log('Tentative de chargement du modèle (ressources):', modelPath);
+          // Si pas trouvé, essayer le chemin relatif (pour le développement)
+          modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
+          console.log('Tentative de chargement du modèle (développement):', modelPath);
           
           if (!fs.existsSync(modelPath)) {
-            console.log('Aucun modèle trouvé');
-            modelPath = null;
+            // Si pas trouvé, essayer le chemin dans les ressources de l'app
+            modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+            console.log('Tentative de chargement du modèle (ressources):', modelPath);
+            
+            if (!fs.existsSync(modelPath)) {
+              console.log('Aucun modèle trouvé');
+              modelPath = null;
+            }
           }
         }
       }

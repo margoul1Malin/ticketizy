@@ -1,7 +1,5 @@
 !macro customInstall
   ; Copier le modèle d'étiquette dans le dossier des données utilisateur
-  SetRegView 64
-  ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{${PRODUCT_GUID}}" "InstallLocation"
   
   ; Créer le dossier des données utilisateur
   SetShellVarContext current
