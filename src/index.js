@@ -291,32 +291,12 @@ async function createLabelImage(data, outputPath) {
     // Moyen code-barre (S/N) en dessous - encore plus remonté
     ctx.drawImage(snBarcodeCanvas, 260, 180, 400, 80);
     
-    // Ajouter les textes selon le nouveau modèle
+    // Ajouter seulement le W/O (rotation -90°)
     ctx.fillStyle = 'black';
-    
-    // Référence produit à gauche (rotation -90° pour être à l'endroit)
-    ctx.font = 'bold 72px Arial';
-    ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(80, 300);
-    ctx.rotate(-Math.PI / 2); // Rotation de -90 degrés pour être à l'endroit
-    ctx.fillText(data.model || 'XXXXXXXXXXX', 0, 0);
-    ctx.restore();
-    
-    // Référence produit à gauche (rotation -90° pour être à l'endroit) mais en plus petit au dessus du W/0
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(100, 500);
-    ctx.rotate(-Math.PI / 2); // Rotation de -90 degrés pour être à l'endroit
-    ctx.fillText(data.model || 'XXXXXXXXXXX', 0, 0);
-    ctx.restore();
-
-    // W/O en bas à côté de la référence produit (rotation 90°)
     ctx.font = '14px Arial';
     ctx.textAlign = 'center';
     ctx.save();
-    ctx.translate(120, 500);
+    ctx.translate(140, 490);
     ctx.rotate(-Math.PI / 2); // Rotation de -90 degrés
     ctx.fillText(`W/O: ${data.wo || 'XXXXXXXX'}`, 0, 0);
     ctx.restore();

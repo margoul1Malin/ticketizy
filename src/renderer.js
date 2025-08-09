@@ -60,7 +60,9 @@ class TicketizyApp {
 
         // Charger les options de génération si on va sur la page de génération
         if (pageName === 'generate') {
-            this.loadGenerateOptions();
+            this.loadGenerateOptions().catch(error => {
+                console.error('Erreur lors du chargement des options de génération:', error);
+            });
         }
     }
 
@@ -1504,8 +1506,13 @@ class TicketizyApp {
         let addedCount = 0;
         let skippedCount = 0;
         
+        console.log('=== DÉBUT IMPORT JSON ===');
+        console.log('Données à traiter:', processedFiles);
+        
         for (const fileData of processedFiles) {
             const { model, wo, sn } = fileData;
+            
+            console.log(`Traitement de: model=${model}, wo=${wo}, sn=${sn}`);
             
             if (!model || !wo || !sn) {
                 console.log('Données incomplètes ignorées:', fileData);
@@ -1530,13 +1537,14 @@ class TicketizyApp {
                 if (group.wo === wo) {
                     existingGroup = group;
                     groupId = key;
+                    console.log(`Groupe existant trouvé: ${groupId} avec W/O: ${wo}`);
                     break;
                 }
             }
 
             if (!existingGroup) {
                 // Créer un nouveau groupe
-                groupId = Date.now().toString();
+                groupId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
                 const pattern = this.generatePatternFromSN(sn);
                 this.jsonData["014454078XXXXEUQLJP"].model[model][groupId] = {
                     wo: wo,
@@ -1544,10 +1552,17 @@ class TicketizyApp {
                     sn: {}
                 };
                 existingGroup = this.jsonData["014454078XXXXEUQLJP"].model[model][groupId];
+                console.log(`Nouveau groupe créé: ${groupId} avec W/O: ${wo}`);
             }
 
             // Vérifier si le S/N existe déjà dans ce groupe
-            const snExists = Object.values(existingGroup.sn).includes(sn);
+            const existingSNs = Object.values(existingGroup.sn);
+            const snExists = existingSNs.includes(sn);
+            
+            console.log(`S/N à ajouter: ${sn}`);
+            console.log(`S/N existants dans le groupe:`, existingSNs);
+            console.log(`S/N déjà présent: ${snExists}`);
+            
             if (snExists) {
                 console.log(`S/N ${sn} déjà présent dans le groupe ${groupId}, ignoré`);
                 skippedCount++;
@@ -1555,12 +1570,13 @@ class TicketizyApp {
             }
 
             // Ajouter le S/N au groupe
-            const snId = Date.now().toString();
+            const snId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
             existingGroup.sn[snId] = sn;
             addedCount++;
-            console.log(`S/N ${sn} ajouté au groupe ${groupId}`);
+            console.log(`S/N ${sn} ajouté au groupe ${groupId} avec ID: ${snId}`);
         }
         
+        console.log(`=== FIN IMPORT JSON ===`);
         console.log(`Import terminé: ${addedCount} S/N ajoutés, ${skippedCount} S/N ignorés (doublons)`);
         return { addedCount, skippedCount };
     }
@@ -2016,9 +2032,9 @@ class TicketizyApp {
     // === MÉTHODES POUR LA GÉNÉRATION D'ÉTIQUETTES ===
 
     // Charger les options de génération
-    loadGenerateOptions() {
+    async loadGenerateOptions() {
         if (!this.jsonData) {
-            this.jsonData = this.loadJsonData();
+            this.jsonData = await this.loadJsonData();
         }
 
         this.populateEtiquetteSelect();
