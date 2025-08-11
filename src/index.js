@@ -252,9 +252,22 @@ async function createLabelImage(data, outputPath) {
       ctx.fillText('ÉTIQUETTE D\'EXPÉDITION', 400, 50);
     }
     
-    // Générer le numéro de colis (A1 avec les 4 derniers caractères du S/N)
+    // Générer le numéro de colis selon le format flexible
     const last4Chars = data.sn ? data.sn.substring(8, 12) : 'XXXX';
-    const packageNumber = `014454078${last4Chars}EUQLJP`;
+    
+    // Format flexible : les X peuvent être n'importe quels caractères alphanumériques
+    // Structure : XXXXXXXXX${last4chars}XXXXXX
+    let packageNumber;
+    if (data.customFormat) {
+      // Utiliser le format personnalisé fourni par l'utilisateur
+      packageNumber = data.customFormat.replace('${last4chars}', last4Chars);
+    } else {
+      // Format par défaut (peut être modifié selon les besoins)
+      packageNumber = `014454078${last4Chars}EUQLJP`;
+    }
+    
+    console.log('Format utilisé:', data.customFormat || 'Format par défaut');
+    console.log('Numéro de colis généré:', packageNumber);
     
     // Générer les codes-barres horizontaux selon les dimensions de l'étiquette
     const snBarcodeCanvas = createCanvas(300, 80);

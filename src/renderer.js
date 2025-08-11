@@ -508,14 +508,20 @@ class TicketizyApp {
     }
 
     // Générer le numéro de colis à partir du S/N
-    generatePackageNumber(sn) {
+    generatePackageNumber(sn, customFormat = null) {
         if (!sn || sn.length !== 12) return null;
         
         // Extraire les 4 derniers caractères du S/N
         const last4Chars = sn.substring(8, 12);
         
-        // Construire le numéro de colis : 014454078 + 4 derniers caractères + EUQLJP
-        const packageNumber = `014454078${last4Chars}EUQLJP`;
+        // Utiliser le format personnalisé si fourni, sinon format par défaut
+        let packageNumber;
+        if (customFormat) {
+            packageNumber = customFormat.replace('${last4chars}', last4Chars);
+        } else {
+            // Format par défaut : 014454078 + 4 derniers caractères + EUQLJP
+            packageNumber = `014454078${last4Chars}EUQLJP`;
+        }
         
         return packageNumber;
     }
@@ -1213,12 +1219,13 @@ class TicketizyApp {
         }
 
         try {
-            // Préparer les données pour l'étiquette
+            // Préparer les données pour l'étiquette (format par défaut pour les résultats actuels)
             const labelData = {
                 model: this.currentResults.model || 'OLED77C54LA',
                 wo: this.currentResults.wo || 'XXXXXXXX',
                 sn: this.currentResults.sn || 'XXXXXXXXXXXX',
-                packageNumber: this.generatePackageNumber(this.currentResults.sn)
+                packageNumber: this.generatePackageNumber(this.currentResults.sn, '014454078${last4chars}EUQLJP'),
+                customFormat: '014454078${last4chars}EUQLJP'
             };
             
             console.log('Données pour l\'étiquette:', labelData);
@@ -1246,13 +1253,14 @@ class TicketizyApp {
             
             for (const result of this.processedFiles) {
                 if (result.sn && result.wo) {
-                    // Préparer les données pour l'étiquette
-                    const labelData = {
-                        model: result.model || 'OLED77C54LA',
-                        wo: result.wo,
-                        sn: result.sn,
-                        packageNumber: this.generatePackageNumber(result.sn)
-                    };
+                                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
+                const labelData = {
+                    model: result.model || 'OLED77C54LA',
+                    wo: result.wo,
+                    sn: result.sn,
+                    packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
+                    customFormat: '014454078${last4chars}EUQLJP'
+                };
                     
                     console.log('Génération d\'étiquette pour:', labelData);
                     
@@ -1295,12 +1303,13 @@ class TicketizyApp {
                 
                 for (const snData of sns) {
                     if (snData.sn && snData.wo) {
-                        // Préparer les données pour l'étiquette
+                        // Préparer les données pour l'étiquette (format par défaut pour Excel)
                         const labelData = {
                             model: sheetName, // Le nom de la feuille est la référence de l'appareil
                             wo: snData.wo,
                             sn: snData.sn,
-                            packageNumber: this.generatePackageNumber(snData.sn)
+                            packageNumber: this.generatePackageNumber(snData.sn, '014454078${last4chars}EUQLJP'),
+                            customFormat: '014454078${last4chars}EUQLJP'
                         };
                         
                         console.log('Génération d\'étiquette pour:', labelData);
@@ -2163,7 +2172,14 @@ class TicketizyApp {
             const generatedLabels = [];
             for (const labelData of labelsToGenerate) {
                 try {
-                    const outputPath = await ipcRenderer.invoke('generate-shipping-label', labelData);
+                    // Utiliser le format stocké dans les données de l'étiquette
+                    const labelDataWithFormat = {
+                        ...labelData,
+                        customFormat: labelData.format || null
+                    };
+                    
+                    console.log('Données étiquette avec format:', labelDataWithFormat);
+                    const outputPath = await ipcRenderer.invoke('generate-shipping-label', labelDataWithFormat);
                     generatedLabels.push(outputPath);
                 } catch (error) {
                     console.error(`Erreur lors de la génération de l'étiquette pour ${labelData.sn}:`, error);
@@ -2188,10 +2204,13 @@ class TicketizyApp {
             for (const [modelName, modelData] of Object.entries(etiquetteData.model || {})) {
                 for (const [groupId, groupData] of Object.entries(modelData)) {
                     for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                        // Le nom de l'étiquette EST le format du code-barre
+                        const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
                         labels.push({
                             model: modelName,
                             wo: groupData.wo,
-                            sn: sn
+                            sn: sn,
+                            format: format
                         });
                     }
                 }
@@ -2209,10 +2228,13 @@ class TicketizyApp {
         for (const [modelName, modelData] of Object.entries(etiquetteData.model || {})) {
             for (const [groupId, groupData] of Object.entries(modelData)) {
                 for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                    // Le nom de l'étiquette EST le format du code-barre
+                    const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
                     labels.push({
                         model: modelName,
                         wo: groupData.wo,
-                        sn: sn
+                        sn: sn,
+                        format: format
                     });
                 }
             }
@@ -2228,10 +2250,13 @@ class TicketizyApp {
 
         for (const [groupId, groupData] of Object.entries(modelData)) {
             for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                // Le nom de l'étiquette EST le format du code-barre
+                const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
                 labels.push({
                     model: modelName,
                     wo: groupData.wo,
-                    sn: sn
+                    sn: sn,
+                    format: format
                 });
             }
         }
@@ -2245,10 +2270,13 @@ class TicketizyApp {
         if (!groupData) return labels;
 
         for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+            // Le nom de l'étiquette EST le format du code-barre
+            const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
             labels.push({
                 model: modelName,
                 wo: groupData.wo,
-                sn: sn
+                sn: sn,
+                format: format
             });
         }
         return labels;
@@ -2269,10 +2297,13 @@ class TicketizyApp {
                 for (const [modelName, modelData] of Object.entries(packageData.model)) {
                     for (const [groupKey, groupData] of Object.entries(modelData)) {
                         for (const [snKey, sn] of Object.entries(groupData.sn)) {
+                            // Le nom de l'étiquette EST le format du code-barre
+                            const format = packageNumber.replace(/XXXX/g, '${last4chars}');
                             const labelData = {
                                 model: modelName,
                                 wo: groupData.wo,
-                                sn: sn
+                                sn: sn,
+                                format: format
                             };
 
                             try {
