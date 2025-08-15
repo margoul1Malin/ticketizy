@@ -119,6 +119,29 @@
                 </header>
 
                 <section class="generate-section">
+                    <!-- Configuration des paramètres -->
+                    <div class="config-params">
+                        <h2>⚙️ Configuration</h2>
+                        
+                        <div class="config-group">
+                            <label for="modelPathInput">📄 Modèle d'étiquette :</label>
+                            <div class="file-input-group">
+                                <input type="text" id="modelPathInput" class="file-path-input" placeholder="Chemin vers le modèle d'étiquette..." readonly>
+                                <button id="selectModelBtn" class="btn btn-secondary">📂 Parcourir</button>
+                            </div>
+                            <p class="config-info">Sélectionnez le fichier image du modèle d'étiquette (PNG, JPG)</p>
+                        </div>
+                        
+                        <div class="config-group">
+                            <label for="outputPathInput">📁 Dossier de sortie :</label>
+                            <div class="file-input-group">
+                                <input type="text" id="outputPathInput" class="file-path-input" placeholder="Dossier de sortie des étiquettes..." readonly>
+                                <button id="selectOutputBtn" class="btn btn-secondary">📂 Parcourir</button>
+                            </div>
+                            <p class="config-info">Dossier où seront sauvegardées les étiquettes générées</p>
+                        </div>
+                    </div>
+
                     <div class="generate-options">
                         <h2>🎯 Options de génération</h2>
                         

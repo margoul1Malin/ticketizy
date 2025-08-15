@@ -263,6 +263,25 @@ class TicketizyApp {
                 });
             });
         }
+
+        // Gestion de la sélection du modèle d'étiquette
+        const selectModelBtn = document.getElementById('selectModelBtn');
+        if (selectModelBtn) {
+            selectModelBtn.addEventListener('click', () => {
+                this.selectModelFile();
+            });
+        }
+
+        // Gestion de la sélection du dossier de sortie
+        const selectOutputBtn = document.getElementById('selectOutputBtn');
+        if (selectOutputBtn) {
+            selectOutputBtn.addEventListener('click', () => {
+                this.selectOutputFolder();
+            });
+        }
+
+        // Charger les chemins sauvegardés au démarrage
+        this.loadSavedPaths();
     }
 
     async processFiles(files) {
@@ -1219,13 +1238,22 @@ class TicketizyApp {
         }
 
         try {
+            // Récupérer les paramètres de configuration
+            const modelPathInput = document.getElementById('modelPathInput');
+            const outputPathInput = document.getElementById('outputPathInput');
+            
+            const customModelPath = modelPathInput ? modelPathInput.value.trim() : '';
+            const customOutputPath = outputPathInput ? outputPathInput.value.trim() : '';
+
             // Préparer les données pour l'étiquette (format par défaut pour les résultats actuels)
             const labelData = {
                 model: this.currentResults.model || 'OLED77C54LA',
                 wo: this.currentResults.wo || 'XXXXXXXX',
                 sn: this.currentResults.sn || 'XXXXXXXXXXXX',
                 packageNumber: this.generatePackageNumber(this.currentResults.sn, '014454078${last4chars}EUQLJP'),
-                customFormat: '014454078${last4chars}EUQLJP'
+                customFormat: '014454078${last4chars}EUQLJP',
+                modelPath: customModelPath || null,
+                outputPath: customOutputPath || null
             };
             
             console.log('Données pour l\'étiquette:', labelData);
@@ -1249,18 +1277,27 @@ class TicketizyApp {
         }
 
         try {
+            // Récupérer les paramètres de configuration
+            const modelPathInput = document.getElementById('modelPathInput');
+            const outputPathInput = document.getElementById('outputPathInput');
+            
+            const customModelPath = modelPathInput ? modelPathInput.value.trim() : '';
+            const customOutputPath = outputPathInput ? outputPathInput.value.trim() : '';
+
             const generatedLabels = [];
             
             for (const result of this.processedFiles) {
                 if (result.sn && result.wo) {
-                                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
-                const labelData = {
-                    model: result.model || 'OLED77C54LA',
-                    wo: result.wo,
-                    sn: result.sn,
-                    packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
-                    customFormat: '014454078${last4chars}EUQLJP'
-                };
+                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
+                    const labelData = {
+                        model: result.model || 'OLED77C54LA',
+                        wo: result.wo,
+                        sn: result.sn,
+                        packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
+                        customFormat: '014454078${last4chars}EUQLJP',
+                        modelPath: customModelPath || null,
+                        outputPath: customOutputPath || null
+                    };
                     
                     console.log('Génération d\'étiquette pour:', labelData);
                     
@@ -2040,6 +2077,62 @@ class TicketizyApp {
 
     // === MÉTHODES POUR LA GÉNÉRATION D'ÉTIQUETTES ===
 
+    // Charger les chemins sauvegardés
+    loadSavedPaths() {
+        const savedModelPath = localStorage.getItem('customModelPath');
+        const savedOutputPath = localStorage.getItem('customOutputPath');
+        
+        if (savedModelPath) {
+            const modelPathInput = document.getElementById('modelPathInput');
+            if (modelPathInput) {
+                modelPathInput.value = savedModelPath;
+            }
+        }
+        
+        if (savedOutputPath) {
+            const outputPathInput = document.getElementById('outputPathInput');
+            if (outputPathInput) {
+                outputPathInput.value = savedOutputPath;
+            }
+        }
+    }
+
+    // Sélectionner le modèle d'étiquette
+    async selectModelFile() {
+        try {
+            const filePath = await ipcRenderer.invoke('select-model-file');
+            if (filePath) {
+                const modelPathInput = document.getElementById('modelPathInput');
+                if (modelPathInput) {
+                    modelPathInput.value = filePath;
+                    localStorage.setItem('customModelPath', filePath);
+                    this.showNotification('success', 'Succès', 'Modèle d\'étiquette sélectionné !');
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la sélection du modèle:', error);
+            this.showNotification('error', 'Erreur', 'Erreur lors de la sélection du modèle: ' + error.message);
+        }
+    }
+
+    // Sélectionner le dossier de sortie
+    async selectOutputFolder() {
+        try {
+            const folderPath = await ipcRenderer.invoke('select-output-folder');
+            if (folderPath) {
+                const outputPathInput = document.getElementById('outputPathInput');
+                if (outputPathInput) {
+                    outputPathInput.value = folderPath;
+                    localStorage.setItem('customOutputPath', folderPath);
+                    this.showNotification('success', 'Succès', 'Dossier de sortie sélectionné !');
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la sélection du dossier de sortie:', error);
+            this.showNotification('error', 'Erreur', 'Erreur lors de la sélection du dossier de sortie: ' + error.message);
+        }
+    }
+
     // Charger les options de génération
     async loadGenerateOptions() {
         if (!this.jsonData) {
@@ -2168,6 +2261,13 @@ class TicketizyApp {
                 return;
             }
 
+            // Récupérer les paramètres de configuration
+            const modelPathInput = document.getElementById('modelPathInput');
+            const outputPathInput = document.getElementById('outputPathInput');
+            
+            const customModelPath = modelPathInput ? modelPathInput.value.trim() : '';
+            const customOutputPath = outputPathInput ? outputPathInput.value.trim() : '';
+
             // Générer les étiquettes
             const generatedLabels = [];
             for (const labelData of labelsToGenerate) {
@@ -2175,7 +2275,9 @@ class TicketizyApp {
                     // Utiliser le format stocké dans les données de l'étiquette
                     const labelDataWithFormat = {
                         ...labelData,
-                        customFormat: labelData.format || null
+                        customFormat: labelData.format || null,
+                        modelPath: customModelPath || null,
+                        outputPath: customOutputPath || null
                     };
                     
                     console.log('Données étiquette avec format:', labelDataWithFormat);
