@@ -60,6 +60,27 @@
                     <div class="file-list" id="fileList"></div>
                 </section>
 
+                <!-- Import de fichier texte -->
+                <section class="import-text-section">
+                    <h2>📄 Import de Fichier Texte</h2>
+                    <div class="text-import-content">
+                        <p>Importez un fichier texte contenant vos données d'étiquettes</p>
+                        <div class="text-import-controls">
+                            <button id="selectTextFileBtn" class="btn btn-info">📄 Sélectionner fichier texte</button>
+                            <input type="file" id="textFileInput" accept=".txt" style="display: none;">
+                        </div>
+                        <div class="text-import-info">
+                            <p><strong>Format attendu :</strong></p>
+                            <pre>Appareil : OLED77C54LA
+506MADHOV378 - 5Q1Q02ZQ
+
+Appareil : OLED65C54LA
+506MADHOV370 - 5Q1Q02ZQ
+505MAKR07P81 - 5F1Q026M</pre>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Zone de traitement -->
                 <section class="processing-section" id="processingSection" style="display: none;">
                     <h2>⚙️ Traitement en cours...</h2>
@@ -96,6 +117,8 @@
                 <section class="json-editor-section">
                     <div class="json-controls">
                         <button id="saveJsonBtn" class="btn btn-success">💾 Sauvegarder JSON</button>
+                        <button id="exportToExcelBtn" class="btn btn-warning">📊 Exporter vers Excel</button>
+                        <button id="openConsoleBtn" class="btn btn-secondary">🔧 Ouvrir Console</button>
                     </div>
                     
                     <div class="json-structure">

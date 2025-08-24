@@ -215,6 +215,22 @@ class TicketizyApp {
             });
         }
 
+        const exportToExcelBtn = document.getElementById('exportToExcelBtn');
+        if (exportToExcelBtn) {
+            exportToExcelBtn.addEventListener('click', () => {
+                console.log('Bouton exporter vers Excel cliqué');
+                this.exportJsonToExcel();
+            });
+        }
+
+        const openConsoleBtn = document.getElementById('openConsoleBtn');
+        if (openConsoleBtn) {
+            openConsoleBtn.addEventListener('click', () => {
+                console.log('Bouton ouvrir console cliqué');
+                this.openConsole();
+            });
+        }
+
         const generateLabelsFromJsonBtn = document.getElementById('generateLabelsFromJsonBtn');
         if (generateLabelsFromJsonBtn) {
             generateLabelsFromJsonBtn.addEventListener('click', () => {
@@ -277,6 +293,22 @@ class TicketizyApp {
         if (selectOutputBtn) {
             selectOutputBtn.addEventListener('click', () => {
                 this.selectOutputFolder();
+            });
+        }
+
+        // Gestion de l'import de fichier texte
+        const selectTextFileBtn = document.getElementById('selectTextFileBtn');
+        const textFileInput = document.getElementById('textFileInput');
+        if (selectTextFileBtn && textFileInput) {
+            selectTextFileBtn.addEventListener('click', () => {
+                textFileInput.click();
+            });
+
+            textFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.processTextFile(file);
+                }
             });
         }
 
@@ -785,8 +817,7 @@ class TicketizyApp {
             { from: /A([A-Z]{3}[A-Z0-9]{3})/g, to: '4$1' }, // A → 4 au début des codes W/O
             { from: /([A-Z0-9]{7})I([A-Z0-9]{4})/g, to: '$11$2' }, // I → 1
             { from: /([A-Z0-9]{7})1([A-Z0-9]{4})/g, to: '$1I$2' }, // 1 → I
-            { from: /([A-Z0-9]{7})O([A-Z0-9]{4})/g, to: '$10$2' }, // O → 0
-            { from: /([A-Z0-9]{7})0([A-Z0-9]{4})/g, to: '$1O$2' }, // 0 → O
+            { from: /([A-Z0-9]{7})O([A-Z0-9]{4})/g, to: '$10$2' }, // O → 0 (unidirectionnel)
             { from: /([A-Z0-9]{7})S([A-Z0-9]{4})/g, to: '$18$2' }, // S → 8
             { from: /([A-Z0-9]{7})8([A-Z0-9]{4})/g, to: '$1S$2' }, // 8 → S
             { from: /([A-Z0-9]{7})Z([A-Z0-9]{4})/g, to: '$12$2' }, // Z → 2
@@ -796,6 +827,20 @@ class TicketizyApp {
         // Appliquer les corrections générales
         generalCorrections.forEach(correction => {
             corrected = corrected.replace(correction.from, correction.to);
+        });
+        
+        // Correction spécifique pour les S/N : remplacer O par 0
+        // Chercher tous les patterns de S/N et remplacer O par 0
+        const snPattern = /\d{3}[A-Z0-9]{2}[A-Z0-9]{2}[A-Z0-9]{2}[A-Z0-9]{2}/g;
+        corrected = corrected.replace(snPattern, (match) => {
+            if (match.length === 12) {
+                const correctedSN = match.replace(/O/g, '0');
+                if (correctedSN !== match) {
+                    console.log(`S/N: correction automatique O → 0: ${match} → ${correctedSN}`);
+                }
+                return correctedSN;
+            }
+            return match;
         });
         
         // Validation intelligente des codes
@@ -819,23 +864,25 @@ class TicketizyApp {
         const snMatches = corrected.match(/\d{3}[A-Z0-9]{2}[A-Z0-9]{2}[A-Z0-9]{2}[A-Z0-9]{2}/g) || [];
         snMatches.forEach(match => {
             if (match.length === 12) {
-                // Tester toutes les combinaisons possibles de corrections
+                // Prioriser la correction O → 0 pour les S/N
                 const testCorrections = [
-                    { from: /8/g, to: 'S' },
-                    { from: /S/g, to: '8' },
-                    { from: /O/g, to: '0' },
-                    { from: /0/g, to: 'O' },
-                    { from: /I/g, to: '1' },
-                    { from: /1/g, to: 'I' },
-                    { from: /Z/g, to: '2' },
-                    { from: /2/g, to: 'Z' }
+                    { from: /O/g, to: '0', priority: 1 }, // O → 0 en priorité
+                    { from: /8/g, to: 'S', priority: 2 },
+                    { from: /S/g, to: '8', priority: 2 },
+                    { from: /I/g, to: '1', priority: 2 },
+                    { from: /1/g, to: 'I', priority: 2 },
+                    { from: /Z/g, to: '2', priority: 2 },
+                    { from: /2/g, to: 'Z', priority: 2 }
                 ];
+                
+                // Trier par priorité (1 = plus haute priorité)
+                testCorrections.sort((a, b) => a.priority - b.priority);
                 
                 for (const correction of testCorrections) {
                     const correctedCode = match.replace(correction.from, correction.to);
                     if (isValidCode(correctedCode, 'SN')) {
                         corrected = corrected.replace(match, correctedCode);
-                        console.log(`S/N corrigé: ${match} → ${correctedCode}`);
+                        console.log(`S/N corrigé: ${match} → ${correctedCode} (${correction.from.source} → ${correction.to})`);
                         break;
                     }
                 }
@@ -866,8 +913,17 @@ class TicketizyApp {
         // Chercher le pattern "S/N: [code]" dans le texte de Gemini
         const snMatch = text.match(/S\/N:\s*([A-Z0-9]{12})/i);
         if (snMatch) {
-            console.log('S/N trouvé:', snMatch[1]);
-            return snMatch[1];
+            let sn = snMatch[1];
+            console.log('S/N trouvé:', sn);
+            
+            // Correction automatique O → 0 pour les S/N
+            const originalSN = sn;
+            sn = sn.replace(/O/g, '0');
+            if (sn !== originalSN) {
+                console.log(`S/N corrigé O → 0: ${originalSN} → ${sn}`);
+            }
+            
+            return sn;
         }
 
         console.log('Aucun S/N trouvé');
@@ -891,7 +947,17 @@ class TicketizyApp {
         const snMatches = text.match(/[A-Z0-9]{12}/g) || [];
         console.log('Codes de 12 caractères trouvés:', snMatches);
         
-        return snMatches;
+        // Correction automatique O → 0 pour tous les S/N trouvés
+        const correctedSNs = snMatches.map(sn => {
+            const originalSN = sn;
+            const correctedSN = sn.replace(/O/g, '0');
+            if (correctedSN !== originalSN) {
+                console.log(`S/N candidat corrigé O → 0: ${originalSN} → ${correctedSN}`);
+            }
+            return correctedSN;
+        });
+        
+        return correctedSNs;
     }
 
 
@@ -1288,16 +1354,16 @@ class TicketizyApp {
             
             for (const result of this.processedFiles) {
                 if (result.sn && result.wo) {
-                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
-                    const labelData = {
-                        model: result.model || 'OLED77C54LA',
-                        wo: result.wo,
-                        sn: result.sn,
-                        packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
+                                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
+                const labelData = {
+                    model: result.model || 'OLED77C54LA',
+                    wo: result.wo,
+                    sn: result.sn,
+                    packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
                         customFormat: '014454078${last4chars}EUQLJP',
                         modelPath: customModelPath || null,
                         outputPath: customOutputPath || null
-                    };
+                };
                     
                     console.log('Génération d\'étiquette pour:', labelData);
                     
@@ -1661,6 +1727,209 @@ class TicketizyApp {
         } catch (error) {
             console.error('Erreur lors de la sauvegarde du JSON:', error);
             this.showNotification('error', 'Erreur', 'Erreur lors de la sauvegarde du JSON: ' + error.message);
+        }
+    }
+
+    // Exporter les données JSON vers Excel
+    async exportJsonToExcel() {
+        try {
+            if (!this.jsonData) {
+                this.showNotification('error', 'Erreur', 'Aucune donnée JSON à exporter. Veuillez d\'abord charger des données.');
+                return;
+            }
+
+            // Ouvrir la console pour voir les logs
+            this.openConsole();
+
+            console.log('=== EXPORT JSON VERS EXCEL ===');
+            console.log('Données JSON à exporter:', this.jsonData);
+
+            // Préparer les données pour l'export Excel
+            const excelData = this.prepareJsonForExcel(this.jsonData);
+            console.log('Données préparées pour Excel:', excelData);
+
+            // Créer le workbook Excel directement
+            await this.createExcelFromData(excelData);
+            
+            this.showNotification('success', 'Succès', 'Données JSON exportées vers Excel avec succès !');
+            
+        } catch (error) {
+            console.error('Erreur lors de l\'export JSON vers Excel:', error);
+            this.showNotification('error', 'Erreur', 'Erreur lors de l\'export JSON vers Excel: ' + error.message);
+        }
+    }
+
+    // Préparer les données JSON pour l'export Excel
+    prepareJsonForExcel(jsonData) {
+        const excelData = {};
+        
+        console.log('Préparation des données JSON pour Excel...');
+        console.log('Structure JSON reçue:', JSON.stringify(jsonData, null, 2));
+        
+        // Vérifier que jsonData existe et a la bonne structure
+        if (!jsonData || typeof jsonData !== 'object') {
+            console.error('jsonData est invalide:', jsonData);
+            throw new Error('Données JSON invalides');
+        }
+        
+        // Parcourir la structure JSON
+        for (const [etiquetteName, etiquetteData] of Object.entries(jsonData)) {
+            console.log(`Traitement de l'étiquette: ${etiquetteName}`);
+            console.log('Données de l\'étiquette:', etiquetteData);
+            
+            // Vérifier que etiquetteData et etiquetteData.model existent
+            if (!etiquetteData || !etiquetteData.model || typeof etiquetteData.model !== 'object') {
+                console.warn(`Structure invalide pour l'étiquette ${etiquetteName}:`, etiquetteData);
+                continue;
+            }
+            
+            // Pour chaque modèle d'appareil
+            for (const [modelName, modelData] of Object.entries(etiquetteData.model)) {
+                console.log(`Traitement du modèle: ${modelName}`);
+                console.log('Données du modèle:', modelData);
+                
+                // Vérifier que modelData existe et est un objet
+                if (!modelData || typeof modelData !== 'object') {
+                    console.warn(`Structure invalide pour le modèle ${modelName}:`, modelData);
+                    continue;
+                }
+                
+                // Créer un onglet pour ce modèle
+                const sheetData = [];
+                
+                // Ligne 1 : Identifiant global (nom de l'étiquette)
+                sheetData.push([etiquetteName, '', '', '', '']);
+                
+                // Ligne 2 : W/O en en-têtes de colonnes
+                const woHeaders = ['W/O', '', '', '', '']; // W/O en A2, puis les W/O codes
+                
+                // Ligne 3 : Patterns sous les W/O correspondants
+                const patternRow = ['', '', '', '', ''];
+                
+                // Collecter tous les W/O et patterns uniques
+                const woPatterns = new Map(); // W/O → Pattern
+                const snByWO = {}; // W/O → [S/N]
+                
+                for (const [groupId, groupData] of Object.entries(modelData)) {
+                    console.log(`Traitement du groupe ${groupId}:`, groupData);
+                    
+                    // Vérifier que groupData existe et a la bonne structure
+                    if (!groupData || typeof groupData !== 'object') {
+                        console.warn(`Structure invalide pour le groupe ${groupId}:`, groupData);
+                        continue;
+                    }
+                    
+                    if (groupData.wo && groupData.pattern) {
+                        woPatterns.set(groupData.wo, groupData.pattern);
+                        
+                        if (!snByWO[groupData.wo]) {
+                            snByWO[groupData.wo] = [];
+                        }
+                        
+                        // Ajouter tous les S/N de ce groupe
+                        if (groupData.sn && typeof groupData.sn === 'object') {
+                            for (const [snId, sn] of Object.entries(groupData.sn)) {
+                                if (sn && typeof sn === 'string') {
+                                    snByWO[groupData.wo].push(sn);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                console.log('W/O et patterns collectés:', { woPatterns: Object.fromEntries(woPatterns), snByWO });
+                
+                // Remplir les en-têtes W/O et patterns
+                const woList = Array.from(woPatterns.keys());
+                woList.forEach((wo, index) => {
+                    if (index < 4) { // B2, C2, D2, E2 pour les W/O
+                        woHeaders[index + 1] = wo; // +1 car A2 = 'W/O'
+                        patternRow[index + 1] = woPatterns.get(wo); // +1 car A3 = vide
+                    }
+                });
+                
+                sheetData.push(woHeaders);
+                sheetData.push(patternRow);
+                
+                // Trouver le nombre maximum de S/N pour un W/O
+                const maxSNs = Math.max(...Object.values(snByWO).map(sns => sns.length), 0);
+                
+                // Créer les lignes de données (à partir de la ligne 4)
+                for (let i = 0; i < maxSNs; i++) {
+                    const dataRow = ['', '', '', '', '']; // 5 colonnes
+                    woList.forEach((wo, colIndex) => {
+                        if (colIndex < 4 && snByWO[wo] && snByWO[wo][i]) {
+                            dataRow[colIndex + 1] = snByWO[wo][i]; // +1 car A4+ = vide
+                        }
+                    });
+                    sheetData.push(dataRow);
+                }
+                
+                // Ajouter la référence de l'appareil en bas
+                sheetData.push(['', '', '', '', '']);
+                sheetData.push(['', '', '', '', modelName]);
+                
+                console.log(`Feuille Excel créée pour ${modelName}:`, sheetData);
+                excelData[modelName] = sheetData;
+            }
+        }
+        
+        console.log('Données Excel finales:', excelData);
+        return excelData;
+    }
+
+    // Ouvrir la console de développement
+    openConsole() {
+        try {
+            // Essayer d'ouvrir les DevTools via IPC
+            if (window.electronAPI && window.electronAPI.openDevTools) {
+                window.electronAPI.openDevTools();
+            } else {
+                // Fallback : afficher un message pour ouvrir manuellement
+                this.showNotification('info', 'Console', 'Appuyez sur F12 ou Ctrl+Shift+I pour ouvrir la console');
+                console.log('=== CONSOLE OUVERTE ===');
+                console.log('Cliquez maintenant sur "📊 Exporter vers Excel" pour voir les logs détaillés');
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'ouverture de la console:', error);
+            this.showNotification('info', 'Console', 'Appuyez sur F12 pour ouvrir la console manuellement');
+        }
+    }
+
+    // Créer un fichier Excel directement à partir des données préparées
+    async createExcelFromData(excelData) {
+        try {
+            console.log('=== CRÉATION EXCEL DIRECTE ===');
+            
+            const XLSX = require('xlsx');
+            const workbook = XLSX.utils.book_new();
+            
+            // Créer une feuille pour chaque modèle d'appareil
+            Object.entries(excelData).forEach(([modelName, sheetData]) => {
+                console.log(`Création de la feuille pour ${modelName}:`, sheetData);
+                
+                // Créer la feuille Excel
+                const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+                
+                // Ajouter la feuille au workbook
+                XLSX.utils.book_append_sheet(workbook, worksheet, modelName);
+            });
+            
+            console.log('Workbook créé avec succès:', workbook.SheetNames);
+            
+            // Export du fichier
+            const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+            
+            // Envoi au processus principal pour sauvegarde
+            const filePath = await ipcRenderer.invoke('save-excel-file', buffer);
+            if (filePath) {
+                console.log('Fichier Excel sauvegardé:', filePath);
+                this.showNotification('success', 'Succès', `Fichier Excel sauvegardé: ${filePath}`);
+            }
+            
+        } catch (error) {
+            console.error('Erreur lors de la création Excel:', error);
+            throw error;
         }
     }
 
@@ -2130,6 +2399,152 @@ class TicketizyApp {
         } catch (error) {
             console.error('Erreur lors de la sélection du dossier de sortie:', error);
             this.showNotification('error', 'Erreur', 'Erreur lors de la sélection du dossier de sortie: ' + error.message);
+        }
+    }
+
+    // Traiter un fichier texte d'import
+    async processTextFile(file) {
+        try {
+            console.log('=== TRAITEMENT FICHIER TEXTE ===');
+            console.log('Fichier:', file.name);
+            console.log('Taille:', file.size);
+            
+            // Lire le contenu du fichier
+            const textContent = await this.readTextFile(file);
+            console.log('Contenu du fichier:', textContent);
+            
+            // Parser le contenu pour extraire les données
+            const extractedData = this.parseTextContent(textContent);
+            console.log('Données extraites:', extractedData);
+            
+            // Traiter les données extraites
+            this.processedFiles = extractedData;
+            
+            // Afficher les résultats
+            this.showTextImportResults(extractedData);
+            
+            this.showNotification('success', 'Succès', `Fichier texte traité avec succès ! ${extractedData.length} entrées extraites.`);
+            
+        } catch (error) {
+            console.error('Erreur lors du traitement du fichier texte:', error);
+            this.showNotification('error', 'Erreur', 'Erreur lors du traitement du fichier texte: ' + error.message);
+        }
+    }
+
+    // Lire un fichier texte
+    readTextFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsText(file, 'UTF-8');
+        });
+    }
+
+    // Parser le contenu du fichier texte
+    parseTextContent(textContent) {
+        const lines = textContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        const extractedData = [];
+        let currentAppareil = null;
+        
+        console.log('Lignes du fichier:', lines);
+        
+        for (const line of lines) {
+            // Vérifier si c'est une ligne d'appareil
+            const appareilMatch = line.match(/^Appareil\s*:\s*(.+)$/i);
+            if (appareilMatch) {
+                currentAppareil = appareilMatch[1].trim();
+                console.log(`Nouvel appareil détecté: ${currentAppareil}`);
+                continue;
+            }
+            
+            // Vérifier si c'est une ligne de données (S/N - W/O)
+            const dataMatch = line.match(/^([A-Z0-9]{12})\s*-\s*([A-Z0-9]{8})$/);
+            if (dataMatch && currentAppareil) {
+                const sn = dataMatch[1];
+                const wo = dataMatch[2];
+                
+                // Appliquer la correction O → 0 pour le S/N
+                const correctedSN = sn.replace(/O/g, '0');
+                if (correctedSN !== sn) {
+                    console.log(`S/N corrigé O → 0: ${sn} → ${correctedSN}`);
+                }
+                
+                const entry = {
+                    model: currentAppareil,
+                    wo: wo,
+                    sn: correctedSN,
+                    filename: `Import_texte_${extractedData.length + 1}`,
+                    source: 'text_file'
+                };
+                
+                extractedData.push(entry);
+                console.log(`Entrée extraite:`, entry);
+            }
+        }
+        
+        console.log(`Total des entrées extraites: ${extractedData.length}`);
+        return extractedData;
+    }
+
+    // Afficher les résultats de l'import texte
+    showTextImportResults(extractedData) {
+        const resultsSection = document.getElementById('resultsSection');
+        resultsSection.style.display = 'block';
+
+        // Afficher un résumé des données extraites
+        if (extractedData.length > 0) {
+            let summaryHTML = '<h3>📋 Résumé de l\'import texte</h3>';
+            summaryHTML += '<div class="results-summary">';
+            
+            // Grouper par appareil
+            const groupedByAppareil = {};
+            extractedData.forEach(entry => {
+                if (!groupedByAppareil[entry.model]) {
+                    groupedByAppareil[entry.model] = [];
+                }
+                groupedByAppareil[entry.model].push(entry);
+            });
+            
+            Object.entries(groupedByAppareil).forEach(([appareil, entries]) => {
+                summaryHTML += `
+                    <div class="appareil-group">
+                        <h4>📱 ${appareil} (${entries.length} entrées)</h4>
+                        <div class="entries-list">
+                `;
+                
+                entries.forEach((entry, index) => {
+                    summaryHTML += `
+                        <div class="entry-item">
+                            <span class="entry-sn">${entry.sn}</span>
+                            <span class="entry-separator">-</span>
+                            <span class="entry-wo">${entry.wo}</span>
+                        </div>
+                    `;
+                });
+                
+                summaryHTML += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            summaryHTML += '</div>';
+            
+            // Remplacer le contenu de la grille des résultats
+            const resultsGrid = document.querySelector('.results-grid');
+            resultsGrid.innerHTML = summaryHTML;
+            
+            // Modifier les boutons d'action
+            const actionsDiv = document.querySelector('.actions');
+            actionsDiv.innerHTML = `
+                <button id="importToJsonBtn" class="btn btn-info">📄 Importer dans JSON</button>
+            `;
+            
+            // Ajouter les event listeners pour les nouveaux boutons
+            document.getElementById('importToJsonBtn').addEventListener('click', () => {
+                this.importToJson();
+            });
         }
     }
 

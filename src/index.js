@@ -171,8 +171,8 @@ async function generateShippingLabel(data) {
     if (data.outputPath) {
       outputDir = data.outputPath;
     } else {
-      // Création du dossier de sortie dans les données utilisateur
-      const userDataPath = app.getPath('userData');
+    // Création du dossier de sortie dans les données utilisateur
+    const userDataPath = app.getPath('userData');
       outputDir = path.join(userDataPath, 'output');
     }
     
@@ -230,55 +230,55 @@ async function createLabelImage(data, outputPath) {
         console.log('Utilisation du modèle personnalisé:', modelPath);
         console.log('Le fichier existe ?', fs.existsSync(modelPath));
       } else {
-        // Essayer d'abord le bureau de l'utilisateur (pour test)
-        const desktopPath = app.getPath('desktop');
-        console.log('Chemin du bureau:', desktopPath);
-        modelPath = path.join(desktopPath, 'ModeleEtiquetteExportation2.png');
-        console.log('Tentative de chargement du modèle (bureau):', modelPath);
-        console.log('Le fichier existe sur le bureau ?', fs.existsSync(modelPath));
+      // Essayer d'abord le bureau de l'utilisateur (pour test)
+      const desktopPath = app.getPath('desktop');
+      console.log('Chemin du bureau:', desktopPath);
+      modelPath = path.join(desktopPath, 'ModeleEtiquetteExportation2.png');
+      console.log('Tentative de chargement du modèle (bureau):', modelPath);
+      console.log('Le fichier existe sur le bureau ?', fs.existsSync(modelPath));
+      
+      if (!fs.existsSync(modelPath)) {
+        console.log('❌ Modèle non trouvé sur le bureau');
+        
+        // Si pas trouvé sur le bureau, essayer le dossier utilisateur (après installation)
+        const userDataPath = app.getPath('userData');
+        console.log('Chemin des données utilisateur:', userDataPath);
+        modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
+        console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
+        console.log('Le fichier existe dans userData ?', fs.existsSync(modelPath));
         
         if (!fs.existsSync(modelPath)) {
-          console.log('❌ Modèle non trouvé sur le bureau');
+          console.log('❌ Modèle non trouvé dans userData');
           
-          // Si pas trouvé sur le bureau, essayer le dossier utilisateur (après installation)
-          const userDataPath = app.getPath('userData');
-          console.log('Chemin des données utilisateur:', userDataPath);
-          modelPath = path.join(userDataPath, 'ModeleEtiquetteExportation2.png');
-          console.log('Tentative de chargement du modèle (dossier utilisateur):', modelPath);
-          console.log('Le fichier existe dans userData ?', fs.existsSync(modelPath));
+          // Si pas trouvé, essayer le chemin relatif (pour le développement)
+          modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
+          console.log('Chemin __dirname:', __dirname);
+          console.log('Tentative de chargement du modèle (développement):', modelPath);
+          console.log('Le fichier existe en développement ?', fs.existsSync(modelPath));
           
           if (!fs.existsSync(modelPath)) {
-            console.log('❌ Modèle non trouvé dans userData');
+            console.log('❌ Modèle non trouvé en développement');
             
-            // Si pas trouvé, essayer le chemin relatif (pour le développement)
-            modelPath = path.join(__dirname, '..', 'ModeleEtiquetteExportation2.png');
-            console.log('Chemin __dirname:', __dirname);
-            console.log('Tentative de chargement du modèle (développement):', modelPath);
-            console.log('Le fichier existe en développement ?', fs.existsSync(modelPath));
+            // Si pas trouvé, essayer le chemin dans les ressources de l'app
+            modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
+            console.log('Tentative de chargement du modèle (ressources):', modelPath);
+            console.log('Le fichier existe dans les ressources ?', fs.existsSync(modelPath));
             
             if (!fs.existsSync(modelPath)) {
-              console.log('❌ Modèle non trouvé en développement');
-              
-              // Si pas trouvé, essayer le chemin dans les ressources de l'app
-              modelPath = path.join(__dirname, 'ModeleEtiquetteExportation2.png');
-              console.log('Tentative de chargement du modèle (ressources):', modelPath);
-              console.log('Le fichier existe dans les ressources ?', fs.existsSync(modelPath));
-              
-              if (!fs.existsSync(modelPath)) {
-                console.log('❌ Modèle non trouvé dans les ressources');
-                console.log('Aucun modèle trouvé');
-                modelPath = null;
-              } else {
-                console.log('✅ Modèle trouvé dans les ressources');
-              }
+              console.log('❌ Modèle non trouvé dans les ressources');
+              console.log('Aucun modèle trouvé');
+              modelPath = null;
             } else {
-              console.log('✅ Modèle trouvé en développement');
+              console.log('✅ Modèle trouvé dans les ressources');
             }
           } else {
-            console.log('✅ Modèle trouvé dans userData');
+            console.log('✅ Modèle trouvé en développement');
           }
         } else {
-          console.log('✅ Modèle trouvé sur le bureau');
+          console.log('✅ Modèle trouvé dans userData');
+        }
+      } else {
+        console.log('✅ Modèle trouvé sur le bureau');
         }
       }
       

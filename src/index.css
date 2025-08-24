@@ -948,3 +948,163 @@ section h2 {
   transform: translateY(0);
   box-shadow: 0 2px 6px rgba(149, 165, 166, 0.3);
 }
+
+/* Styles pour l'import de fichier texte */
+.import-text-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border: 1px solid #e1e8ed;
+}
+
+.import-text-section h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-import-content {
+  text-align: center;
+}
+
+.text-import-content p {
+  margin-bottom: 20px;
+  color: #7f8c8d;
+  font-size: 1rem;
+}
+
+.text-import-controls {
+  margin-bottom: 25px;
+}
+
+.text-import-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  border: 1px solid #e1e8ed;
+}
+
+.text-import-info p {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.text-import-info pre {
+  background: #2c3e50;
+  color: #ecf0f1;
+  padding: 15px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-info:hover {
+  background: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+}
+
+.btn-info:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(23, 162, 184, 0.3);
+}
+
+/* Styles pour les résultats d'import texte */
+.appareil-group {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e1e8ed;
+}
+
+.appareil-group h4 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entry-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e1e8ed;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.entry-sn {
+  color: #2c3e50;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.entry-separator {
+  color: #7f8c8d;
+  font-weight: bold;
+}
+
+.entry-wo {
+  color: #e74c3c;
+  font-weight: 600;
+  min-width: 100px;
+}
+
+/* Style pour le bouton d'export Excel */
+.btn-warning {
+  background: #f39c12;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-left: 10px;
+}
+
+.btn-warning:hover {
+  background: #e67e22;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+}
+
+.btn-warning:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(243, 156, 18, 0.3);
+}
