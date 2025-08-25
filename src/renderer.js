@@ -1062,11 +1062,16 @@ class TicketizyApp {
             const actionsDiv = document.querySelector('.actions');
             actionsDiv.innerHTML = `
                 <button id="importToJsonBtn" class="btn btn-info">📄 Importer dans JSON</button>
+                <button id="downloadSummaryBtn" class="btn btn-success">📥 Télécharger Résumé</button>
             `;
             
             // Ajouter les event listeners pour les nouveaux boutons
             document.getElementById('importToJsonBtn').addEventListener('click', () => {
                 this.importToJson();
+            });
+            
+            document.getElementById('downloadSummaryBtn').addEventListener('click', () => {
+                this.downloadSummary();
             });
             
             // Ajouter les event listeners pour l'édition des champs
@@ -2539,11 +2544,16 @@ class TicketizyApp {
             const actionsDiv = document.querySelector('.actions');
             actionsDiv.innerHTML = `
                 <button id="importToJsonBtn" class="btn btn-info">📄 Importer dans JSON</button>
+                <button id="downloadSummaryBtn" class="btn btn-success">📥 Télécharger Résumé</button>
             `;
             
             // Ajouter les event listeners pour les nouveaux boutons
             document.getElementById('importToJsonBtn').addEventListener('click', () => {
                 this.importToJson();
+            });
+            
+            document.getElementById('downloadSummaryBtn').addEventListener('click', () => {
+                this.downloadSummary();
             });
         }
     }
@@ -2843,6 +2853,92 @@ class TicketizyApp {
             console.error('Erreur lors de la génération des étiquettes depuis JSON:', error);
             this.showNotification('error', 'Erreur', 'Erreur lors de la génération des étiquettes depuis JSON: ' + error.message);
         }
+    }
+
+    // Télécharger le résumé des données extraites
+    async downloadSummary() {
+        try {
+            if (!this.processedFiles || this.processedFiles.length === 0) {
+                this.showNotification('warning', 'Attention', 'Aucune donnée à télécharger. Veuillez d\'abord traiter des images.');
+                return;
+            }
+
+            // Générer le contenu du fichier texte au format d'import
+            const summaryContent = this.generateSummaryContent();
+            
+            // Créer le nom du fichier avec la date et l'heure
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const filename = `resume_extraction_${timestamp}.txt`;
+            
+            // Créer le blob et télécharger
+            const blob = new Blob([summaryContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            // Créer un lien de téléchargement temporaire
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.style.display = 'none';
+            
+            // Ajouter au DOM, cliquer et nettoyer
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            // Libérer l'URL
+            URL.revokeObjectURL(url);
+            
+            this.showNotification('success', 'Succès', `Résumé téléchargé avec succès : ${filename}`);
+            
+        } catch (error) {
+            console.error('Erreur lors du téléchargement du résumé:', error);
+            this.showNotification('error', 'Erreur', 'Erreur lors du téléchargement du résumé: ' + error.message);
+        }
+    }
+
+    // Générer le contenu du résumé au format d'import
+    generateSummaryContent() {
+        if (!this.processedFiles || this.processedFiles.length === 0) {
+            return 'Aucune donnée à exporter.';
+        }
+
+        let content = '';
+        let currentModel = null;
+        
+        // Grouper par modèle d'appareil
+        const groupedByModel = {};
+        this.processedFiles.forEach(result => {
+            if (result.model && result.sn && result.wo) {
+                if (!groupedByModel[result.model]) {
+                    groupedByModel[result.model] = [];
+                }
+                groupedByModel[result.model].push({
+                    sn: result.sn,
+                    wo: result.wo
+                });
+            }
+        });
+
+        // Générer le contenu au format d'import
+        Object.entries(groupedByModel).forEach(([model, entries]) => {
+            content += `Appareil : ${model}\n`;
+            entries.forEach(entry => {
+                content += `${entry.sn} - ${entry.wo}\n`;
+            });
+            content += '\n'; // Ligne vide entre les modèles
+        });
+
+        // Ajouter un en-tête avec les informations de traitement
+        const header = `# Résumé de l'extraction Gemini
+# Date de génération : ${new Date().toLocaleString('fr-FR')}
+# Nombre total d'images traitées : ${this.processedFiles.length}
+# Format : Appareil : [MODEL]
+#          [S/N] - [W/O]
+#
+`;
+        
+        return header + content;
     }
 }
 
