@@ -499,18 +499,19 @@ class TicketizyApp {
                 console.log(`organizeDataForExcel - Processing result ${index} with sn: ${result.sn}, model: ${result.model}`);
                 
                 const deviceRef = this.extractDeviceReference(result.model);
-                const wo = this.getWOFromSN(result.sn);
+                const wo = result.wo || null; // W/O peut être null
                 
                 console.log(`organizeDataForExcel - deviceRef: ${deviceRef}, wo: ${wo}`);
                 
                 if (!organizedData[deviceRef]) {
                     organizedData[deviceRef] = {
                         patterns: new Map(), // Map W/O → Pattern
-                        sns: [] // S/N avec leurs W/O correspondants
+                        sns: [], // S/N avec leurs W/O correspondants
+                        snsWithoutWO: [] // S/N sans W/O - séparés complètement
                     };
                 }
                 
-                if (wo) {
+                if (wo && wo !== null && wo !== undefined && wo !== "" && wo !== 'SANS_WO' && wo.trim() !== '') {
                     // Créer ou mettre à jour le pattern pour ce W/O
                     if (!organizedData[deviceRef].patterns.has(wo)) {
                         // Générer un pattern basé sur le S/N
@@ -524,7 +525,12 @@ class TicketizyApp {
                         filename: result.filename
                     });
                 } else {
-                    console.log(`S/N ${result.sn} sans W/O correspondant trouvé`);
+                    // S/N sans W/O - complètement séparé
+                    console.log(`S/N ${result.sn} sans W/O - ajouté au groupe SANS_WO séparé`);
+                    organizedData[deviceRef].snsWithoutWO.push({
+                        sn: result.sn,
+                        filename: result.filename
+                    });
                 }
             } else {
                 console.log(`organizeDataForExcel - Skipping result ${index} - missing sn or model:`, {
@@ -904,7 +910,7 @@ class TicketizyApp {
         }
 
         console.log('Aucun W/O trouvé');
-        return null;
+        return ""; // Chaîne vide au lieu de null
     }
 
     extractSN(text) {
@@ -1235,25 +1241,16 @@ class TicketizyApp {
                         woHeaders[index + 1] = wo; // +1 car A2 = 'W/O'
                     }
                 });
-                excelData.push(woHeaders);
                 
-                // Ligne 3 : Patterns sous les W/O correspondants
-                const patternRow = ['', '', '', '', ''];
-                patterns.forEach(([wo, pattern], index) => {
-                    if (index < 4) {
-                        patternRow[index + 1] = pattern; // +1 car A3 = vide
-                    }
-                });
-                excelData.push(patternRow);
+                // Ajouter une colonne pour les S/N sans W/O si il y en a
+                const hasSansWO = woList.some(wo => wo === null || wo === undefined);
+                if (hasSansWO) {
+                    woHeaders.push('SANS_WO');
+                    patternRow.push('SANS_WO');
+                }
                 
-                // Lignes suivantes : S/N classifiés par W/O
-                const snByWO = {};
-                deviceData.sns.forEach(item => {
-                    if (!snByWO[item.wo]) {
-                        snByWO[item.wo] = [];
-                    }
-                    snByWO[item.wo].push(item.sn);
-                });
+                sheetData.push(woHeaders);
+                sheetData.push(patternRow);
                 
                 // Trouver le nombre maximum de S/N pour un W/O
                 const maxSNs = Math.max(...Object.values(snByWO).map(sns => sns.length), 0);
@@ -1261,17 +1258,35 @@ class TicketizyApp {
                 // Créer les lignes de données (à partir de la ligne 4)
                 for (let i = 0; i < maxSNs; i++) {
                     const dataRow = ['', '', '', '', '']; // 5 colonnes
-                    patterns.forEach(([wo, pattern], colIndex) => {
+                    woList.forEach((wo, colIndex) => {
                         if (colIndex < 4 && snByWO[wo] && snByWO[wo][i]) {
                             dataRow[colIndex + 1] = snByWO[wo][i]; // +1 car A4+ = vide
                         }
                     });
-                    excelData.push(dataRow);
+                    
+                    // Ajouter les S/N sans W/O dans la colonne SANS_WO
+                    if (hasSansWO) {
+                        if (snByWO['SANS_WO'] && snByWO['SANS_WO'][i]) {
+                            dataRow.push(snByWO['SANS_WO'][i]);
+                        } else {
+                            dataRow.push(''); // Cellule vide si pas de S/N à cette position
+                        }
+                    }
+                    
+                    sheetData.push(dataRow);
                 }
                 
-                // Ajouter la référence de l'appareil en bas (optionnel)
-                // excelData.push(['', '', '', '', '']);
-                // excelData.push(['', '', '', '', deviceRef]);
+                // Ajouter des lignes supplémentaires pour les S/N sans W/O qui dépassent le max
+                if (hasSansWO && snByWO['SANS_WO'] && snByWO['SANS_WO'].length > maxSNs) {
+                    for (let i = maxSNs; i < snByWO['SANS_WO'].length; i++) {
+                        const dataRow = ['', '', '', '', '']; // 5 colonnes
+                        
+                        // Ajouter le S/N sans W/O dans la colonne SANS_WO
+                        dataRow.push(snByWO['SANS_WO'][i]);
+                        
+                        sheetData.push(dataRow);
+                    }
+                }
                 
                 console.log(`Structure Excel pour ${deviceRef}:`, excelData);
                 
@@ -1285,6 +1300,8 @@ class TicketizyApp {
                     // Ajouter une nouvelle feuille
                     XLSX.utils.book_append_sheet(workbook, newWorksheet, deviceRef);
                 }
+                
+
             });
 
             // Export du fichier
@@ -1319,8 +1336,8 @@ class TicketizyApp {
             // Préparer les données pour l'étiquette (format par défaut pour les résultats actuels)
             const labelData = {
                 model: this.currentResults.model || 'OLED77C54LA',
-                wo: this.currentResults.wo || 'XXXXXXXX',
-                sn: this.currentResults.sn || 'XXXXXXXXXXXX',
+                wo: this.currentResults.wo || null, // null au lieu de 'XXXXXXXX' si pas de W/O
+                sn: this.currentResults.sn || '',
                 packageNumber: this.generatePackageNumber(this.currentResults.sn, '014454078${last4chars}EUQLJP'),
                 customFormat: '014454078${last4chars}EUQLJP',
                 modelPath: customModelPath || null,
@@ -1358,17 +1375,17 @@ class TicketizyApp {
             const generatedLabels = [];
             
             for (const result of this.processedFiles) {
-                if (result.sn && result.wo) {
-                                    // Préparer les données pour l'étiquette (format par défaut pour les fichiers traités)
-                const labelData = {
-                    model: result.model || 'OLED77C54LA',
-                    wo: result.wo,
-                    sn: result.sn,
-                    packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
+                if (result.sn && result.model) {
+                    // Préparer les données pour l'étiquette
+                    const labelData = {
+                        model: result.model || 'OLED77C54LA',
+                        wo: result.wo || null, // null si pas de W/O
+                        sn: result.sn,
+                        packageNumber: this.generatePackageNumber(result.sn, '014454078${last4chars}EUQLJP'),
                         customFormat: '014454078${last4chars}EUQLJP',
                         modelPath: customModelPath || null,
                         outputPath: customOutputPath || null
-                };
+                    };
                     
                     console.log('Génération d\'étiquette pour:', labelData);
                     
@@ -1410,7 +1427,7 @@ class TicketizyApp {
                 console.log(`S/N trouvés dans ${sheetName}:`, sns);
                 
                 for (const snData of sns) {
-                    if (snData.sn && snData.wo) {
+                    if (snData.sn && snData.wo && snData.wo !== null && snData.wo !== undefined && snData.wo !== "" && snData.wo.trim() !== "") {
                         // Préparer les données pour l'étiquette (format par défaut pour Excel)
                         const labelData = {
                             model: sheetName, // Le nom de la feuille est la référence de l'appareil
@@ -1427,6 +1444,8 @@ class TicketizyApp {
                         if (filePath) {
                             generatedLabels.push(filePath);
                         }
+                    } else if (snData.wo === null || snData.wo === undefined || snData.wo === "" || snData.wo.trim() === "") {
+                        console.log(`S/N ${snData.sn} ignoré car sans W/O valide`);
                     }
                 }
             }
@@ -1461,12 +1480,21 @@ class TicketizyApp {
                     
                     if (cellValue && typeof cellValue === 'string' && cellValue.length === 12) {
                         // C'est probablement un S/N
-                        const wo = this.getWOFromSN(cellValue);
-                        if (wo) {
+                        if (colIndex === 5 && row[1] === 'SANS_WO') {
+                            // C'est un S/N dans la colonne SANS_WO
                             sns.push({
                                 sn: cellValue,
-                                wo: wo
+                                wo: "" // Chaîne vide au lieu de null
                             });
+                        } else {
+                            // C'est un S/N normal, essayer de trouver le W/O
+                            const wo = this.getWOFromSN(cellValue);
+                            if (wo) {
+                                sns.push({
+                                    sn: cellValue,
+                                    wo: wo
+                                });
+                            }
                         }
                     }
                 }
@@ -1626,13 +1654,17 @@ class TicketizyApp {
         console.log('=== DÉBUT IMPORT JSON ===');
         console.log('Données à traiter:', processedFiles);
         
+        // Sauvegarder les données existantes pour éviter les remplacements
+        const existingData = JSON.parse(JSON.stringify(this.jsonData));
+        console.log('Données existantes sauvegardées:', existingData);
+        
         for (const fileData of processedFiles) {
             const { model, wo, sn } = fileData;
             
             console.log(`Traitement de: model=${model}, wo=${wo}, sn=${sn}`);
             
-            if (!model || !wo || !sn) {
-                console.log('Données incomplètes ignorées:', fileData);
+            if (!model || !sn) {
+                console.log('Données incomplètes ignorées (manque model ou sn):', fileData);
                 continue;
             }
 
@@ -1645,52 +1677,98 @@ class TicketizyApp {
                 this.jsonData["014454078XXXXEUQLJP"].model[model] = {};
             }
 
-            // Trouver ou créer un groupe pour ce W/O
-            let existingGroup = null;
-            let groupId = null;
-            
-            // Chercher un groupe existant avec le même W/O
-            for (const [key, group] of Object.entries(this.jsonData["014454078XXXXEUQLJP"].model[model])) {
-                if (group.wo === wo) {
-                    existingGroup = group;
-                    groupId = key;
-                    console.log(`Groupe existant trouvé: ${groupId} avec W/O: ${wo}`);
-                    break;
+            if (wo && wo !== null && wo !== undefined && wo.trim() !== '') {
+                // Traitement normal avec W/O
+                let existingGroup = null;
+                let groupId = null;
+                
+                // Chercher un groupe existant avec le même W/O
+                for (const [key, group] of Object.entries(this.jsonData["014454078XXXXEUQLJP"].model[model])) {
+                    if (group.wo === wo) {
+                        existingGroup = group;
+                        groupId = key;
+                        console.log(`Groupe existant trouvé: ${groupId} avec W/O: ${wo}`);
+                        break;
+                    }
                 }
-            }
 
-            if (!existingGroup) {
-                // Créer un nouveau groupe
-                groupId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-                const pattern = this.generatePatternFromSN(sn);
-                this.jsonData["014454078XXXXEUQLJP"].model[model][groupId] = {
-                    wo: wo,
-                    pattern: pattern,
-                    sn: {}
-                };
-                existingGroup = this.jsonData["014454078XXXXEUQLJP"].model[model][groupId];
-                console.log(`Nouveau groupe créé: ${groupId} avec W/O: ${wo}`);
-            }
+                if (!existingGroup) {
+                    // Créer un nouveau groupe
+                    groupId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                    const pattern = this.generatePatternFromSN(sn);
+                    this.jsonData["014454078XXXXEUQLJP"].model[model][groupId] = {
+                        wo: wo,
+                        pattern: pattern,
+                        sn: {}
+                    };
+                    existingGroup = this.jsonData["014454078XXXXEUQLJP"].model[model][groupId];
+                    console.log(`Nouveau groupe créé: ${groupId} avec W/O: ${wo}`);
+                }
 
-            // Vérifier si le S/N existe déjà dans ce groupe
-            const existingSNs = Object.values(existingGroup.sn);
-            const snExists = existingSNs.includes(sn);
-            
-            console.log(`S/N à ajouter: ${sn}`);
-            console.log(`S/N existants dans le groupe:`, existingSNs);
-            console.log(`S/N déjà présent: ${snExists}`);
-            
-            if (snExists) {
-                console.log(`S/N ${sn} déjà présent dans le groupe ${groupId}, ignoré`);
-                skippedCount++;
-                continue;
-            }
+                // Vérifier si le S/N existe déjà dans ce groupe
+                const existingSNs = Object.values(existingGroup.sn);
+                const snExists = existingSNs.includes(sn);
+                
+                console.log(`S/N à ajouter: ${sn}`);
+                console.log(`S/N existants dans le groupe:`, existingSNs);
+                console.log(`S/N déjà présent: ${snExists}`);
+                
+                if (snExists) {
+                    console.log(`S/N ${sn} déjà présent dans le groupe ${groupId}, ignoré`);
+                    skippedCount++;
+                    continue;
+                }
 
-            // Ajouter le S/N au groupe
-            const snId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-            existingGroup.sn[snId] = sn;
-            addedCount++;
-            console.log(`S/N ${sn} ajouté au groupe ${groupId} avec ID: ${snId}`);
+                // Ajouter le S/N au groupe
+                const snId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                existingGroup.sn[snId] = sn;
+                addedCount++;
+                console.log(`S/N ${sn} ajouté au groupe ${groupId} avec ID: ${snId}`);
+            } else {
+                // Traitement des S/N sans W/O
+                console.log(`S/N ${sn} sans W/O - traitement spécial`);
+                
+                // Chercher le groupe SANS_WO existant
+                let sansWOGroup = null;
+                let sansWOGroupId = null;
+                
+                for (const [key, group] of Object.entries(this.jsonData["014454078XXXXEUQLJP"].model[model])) {
+                    if (group.wo === null || group.wo === undefined || group.wo === "" || group.wo.trim() === "") {
+                        sansWOGroup = group;
+                        sansWOGroupId = key;
+                        console.log(`Groupe SANS_WO existant trouvé: ${sansWOGroupId}`);
+                        break;
+                    }
+                }
+
+                if (!sansWOGroup) {
+                    // Créer un nouveau groupe SANS_WO
+                    sansWOGroupId = 'SANS_WO_' + Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                    this.jsonData["014454078XXXXEUQLJP"].model[model][sansWOGroupId] = {
+                        wo: "", // Chaîne vide pour les S/N sans W/O
+                        pattern: null, // null au lieu de 'SANS_WO' pour le pattern
+                        sn: {}
+                    };
+                    sansWOGroup = this.jsonData["014454078XXXXEUQLJP"].model[model][sansWOGroupId];
+                    console.log(`Nouveau groupe SANS_WO créé: ${sansWOGroupId}`);
+                }
+
+                // Vérifier si le S/N existe déjà dans ce groupe
+                const existingSNs = Object.values(sansWOGroup.sn);
+                const snExists = existingSNs.includes(sn);
+                
+                if (snExists) {
+                    console.log(`S/N ${sn} déjà présent dans le groupe SANS_WO ${sansWOGroupId}, ignoré`);
+                    skippedCount++;
+                    continue;
+                }
+
+                // Ajouter le S/N au groupe SANS_WO
+                const snId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                sansWOGroup.sn[snId] = sn;
+                addedCount++;
+                console.log(`S/N ${sn} ajouté au groupe SANS_WO ${sansWOGroupId} avec ID: ${snId}`);
+            }
         }
         
         console.log(`=== FIN IMPORT JSON ===`);
@@ -1766,32 +1844,18 @@ class TicketizyApp {
 
     // Préparer les données JSON pour l'export Excel
     prepareJsonForExcel(jsonData) {
+        console.log('=== DÉBUT prepareJsonForExcel ===');
+        console.log('JSON reçu:', JSON.stringify(jsonData, null, 2));
+        
         const excelData = {};
         
-        console.log('Préparation des données JSON pour Excel...');
-        console.log('Structure JSON reçue:', JSON.stringify(jsonData, null, 2));
-        
-        // Vérifier que jsonData existe et a la bonne structure
-        if (!jsonData || typeof jsonData !== 'object') {
-            console.error('jsonData est invalide:', jsonData);
-            throw new Error('Données JSON invalides');
-        }
-        
-        // Parcourir la structure JSON
         for (const [etiquetteName, etiquetteData] of Object.entries(jsonData)) {
-            console.log(`Traitement de l'étiquette: ${etiquetteName}`);
-            console.log('Données de l\'étiquette:', etiquetteData);
+            console.log(`\n--- TRAITEMENT ÉTIQUETTE: ${etiquetteName} ---`);
+            console.log('Données étiquette:', etiquetteData);
             
-            // Vérifier que etiquetteData et etiquetteData.model existent
-            if (!etiquetteData || !etiquetteData.model || typeof etiquetteData.model !== 'object') {
-                console.warn(`Structure invalide pour l'étiquette ${etiquetteName}:`, etiquetteData);
-                continue;
-            }
-            
-            // Pour chaque modèle d'appareil
             for (const [modelName, modelData] of Object.entries(etiquetteData.model)) {
-                console.log(`Traitement du modèle: ${modelName}`);
-                console.log('Données du modèle:', modelData);
+                console.log(`\n--- TRAITEMENT MODÈLE: ${modelName} ---`);
+                console.log('Données modèle:', modelData);
                 
                 // Vérifier que modelData existe et est un objet
                 if (!modelData || typeof modelData !== 'object') {
@@ -1802,21 +1866,25 @@ class TicketizyApp {
                 // Créer un onglet pour ce modèle
                 const sheetData = [];
                 
-                // Ligne 1 : Identifiant global (nom de l'étiquette)
-                sheetData.push([etiquetteName, '', '', '', '']);
+                // Ligne 1 : Identifiant global (nom de l'étiquette) - sera mise à jour après
+                const ligne1 = [etiquetteName, '', '', '', ''];
+                console.log('Ligne 1 initiale:', ligne1);
                 
                 // Ligne 2 : W/O en en-têtes de colonnes
                 const woHeaders = ['W/O', '', '', '', '']; // W/O en A2, puis les W/O codes
+                console.log('woHeaders initial:', woHeaders);
                 
                 // Ligne 3 : Patterns sous les W/O correspondants
                 const patternRow = ['', '', '', '', ''];
+                console.log('patternRow initial:', patternRow);
                 
                 // Collecter tous les W/O et patterns uniques
                 const woPatterns = new Map(); // W/O → Pattern
                 const snByWO = {}; // W/O → [S/N]
                 
+                console.log('\n--- COLLECTE DES GROUPES ---');
                 for (const [groupId, groupData] of Object.entries(modelData)) {
-                    console.log(`Traitement du groupe ${groupId}:`, groupData);
+                    console.log(`\nTraitement du groupe ${groupId}:`, groupData);
                     
                     // Vérifier que groupData existe et a la bonne structure
                     if (!groupData || typeof groupData !== 'object') {
@@ -1825,6 +1893,7 @@ class TicketizyApp {
                     }
                     
                     if (groupData.wo && groupData.pattern) {
+                        console.log(`Groupe avec W/O valide: ${groupId}, W/O: "${groupData.wo}", Pattern: "${groupData.pattern}"`);
                         woPatterns.set(groupData.wo, groupData.pattern);
                         
                         if (!snByWO[groupData.wo]) {
@@ -1836,49 +1905,136 @@ class TicketizyApp {
                             for (const [snId, sn] of Object.entries(groupData.sn)) {
                                 if (sn && typeof sn === 'string') {
                                     snByWO[groupData.wo].push(sn);
+                                    console.log(`S/N ajouté au W/O ${groupData.wo}: ${sn}`);
+                                }
+                            }
+                        }
+                    } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo === 'SANS_WO' || groupData.wo.trim() === "") {
+                        // Groupe SANS_WO - traité séparément
+                        console.log(`Groupe SANS_WO détecté: ${groupId}`);
+                        if (!snByWO['SANS_WO']) {
+                            snByWO['SANS_WO'] = [];
+                        }
+                        
+                        // Ajouter tous les S/N de ce groupe
+                        if (groupData.sn && typeof groupData.sn === 'object') {
+                            for (const [snId, sn] of Object.entries(groupData.sn)) {
+                                if (sn && typeof sn === 'string') {
+                                    snByWO['SANS_WO'].push(sn);
+                                    console.log(`S/N sans W/O ajouté: ${sn}`);
                                 }
                             }
                         }
                     }
                 }
                 
+                console.log('\n--- RÉSUMÉ COLLECTE ---');
+                console.log('woPatterns:', Object.fromEntries(woPatterns));
+                console.log('snByWO:', snByWO);
                 console.log('W/O et patterns collectés:', { woPatterns: Object.fromEntries(woPatterns), snByWO });
                 
                 // Remplir les en-têtes W/O et patterns
                 const woList = Array.from(woPatterns.keys());
+                console.log('woList créée:', woList);
+                
                 woList.forEach((wo, index) => {
-                    if (index < 4) { // B2, C2, D2, E2 pour les W/O
-                        woHeaders[index + 1] = wo; // +1 car A2 = 'W/O'
-                        patternRow[index + 1] = woPatterns.get(wo); // +1 car A3 = vide
-                    }
+                    // Ajouter TOUS les W/O, pas de limite de 4
+                    woHeaders[index + 1] = wo; // +1 car A2 = 'W/O'
+                    patternRow[index + 1] = woPatterns.get(wo); // +1 car A3 = vide
+                    console.log(`Colonne ${index + 1} (${String.fromCharCode(66 + index)}): W/O="${wo}", Pattern="${woPatterns.get(wo)}"`);
                 });
+                
+                console.log('\n--- AJOUT COLONNE SANS_WO ---');
+                console.log('snByWO["SANS_WO"]:', snByWO['SANS_WO']);
+                console.log('snByWO["SANS_WO"] existe?', !!snByWO['SANS_WO']);
+                console.log('snByWO["SANS_WO"] length:', snByWO['SANS_WO'] ? snByWO['SANS_WO'].length : 'undefined');
+                
+                // AJOUTER TOUJOURS la colonne SANS_WO à la fin
+                console.log('AJOUT DE LA COLONNE SANS_WO (TOUJOURS À LA FIN) !');
+                woHeaders.push('SANS_WO');
+                patternRow.push(''); // Cellule vide pour le pattern des S/N sans W/O
+                
+                // Étendre aussi la ligne 1 pour avoir le bon nombre de colonnes
+                ligne1.push('');
+                console.log('Ligne 1 étendue:', ligne1);
+                
+                console.log('woHeaders après ajout SANS_WO:', woHeaders);
+                console.log('patternRow après ajout SANS_WO:', patternRow);
+                
+                console.log('\n--- FINALISATION EN-TÊTES ---');
+                console.log('woHeaders final:', woHeaders);
+                console.log('patternRow final:', patternRow);
+                
+                // Ajouter la ligne 1 (maintenant avec le bon nombre de colonnes)
+                sheetData.push(ligne1);
+                console.log('Ligne 1 ajoutée au sheetData:', ligne1);
                 
                 sheetData.push(woHeaders);
                 sheetData.push(patternRow);
+                console.log('En-têtes ajoutés au sheetData');
                 
                 // Trouver le nombre maximum de S/N pour un W/O
                 const maxSNs = Math.max(...Object.values(snByWO).map(sns => sns.length), 0);
+                console.log('maxSNs calculé:', maxSNs);
                 
                 // Créer les lignes de données (à partir de la ligne 4)
+                console.log('\n--- CRÉATION LIGNES DE DONNÉES ---');
                 for (let i = 0; i < maxSNs; i++) {
-                    const dataRow = ['', '', '', '', '']; // 5 colonnes
+                    console.log(`\nCréation ligne ${i + 1}:`);
+                    
+                    // Créer une ligne avec le bon nombre de colonnes (W/O + SANS_WO)
+                    const dataRow = new Array(woHeaders.length).fill('');
+                    console.log('dataRow initial (taille correcte):', dataRow);
+                    
                     woList.forEach((wo, colIndex) => {
-                        if (colIndex < 4 && snByWO[wo] && snByWO[wo][i]) {
+                        // Ajouter les S/N pour chaque W/O
+                        if (snByWO[wo] && snByWO[wo][i]) {
                             dataRow[colIndex + 1] = snByWO[wo][i]; // +1 car A4+ = vide
+                            console.log(`  Colonne ${colIndex + 1}: S/N ajouté "${snByWO[wo][i]}" pour W/O "${wo}"`);
                         }
                     });
+                    
+                    // Ajouter les S/N sans W/O dans la colonne SANS_WO (toujours à la fin)
+                    if (snByWO['SANS_WO'] && snByWO['SANS_WO'][i]) {
+                        dataRow[dataRow.length - 1] = snByWO['SANS_WO'][i]; // Dernière colonne
+                        console.log(`    S/N sans W/O ajouté: "${snByWO['SANS_WO'][i]}" dans la dernière colonne`);
+                    }
+                    
+                    console.log('dataRow final:', dataRow);
                     sheetData.push(dataRow);
                 }
                 
-                // Ajouter la référence de l'appareil en bas
-                sheetData.push(['', '', '', '', '']);
-                sheetData.push(['', '', '', '', modelName]);
+                // Ajouter des lignes supplémentaires pour les S/N sans W/O qui dépassent le max
+                console.log('\n--- LIGNES SUPPLÉMENTAIRES SANS_WO ---');
+                if (snByWO['SANS_WO'] && snByWO['SANS_WO'].length > maxSNs) {
+                    console.log(`Ajout de ${snByWO['SANS_WO'].length - maxSNs} lignes supplémentaires pour S/N sans W/O`);
+                    for (let i = maxSNs; i < snByWO['SANS_WO'].length; i++) {
+                        // Créer une ligne avec le bon nombre de colonnes
+                        const dataRow = new Array(woHeaders.length).fill('');
+                        
+                        // Ajouter le S/N sans W/O dans la colonne SANS_WO (dernière colonne)
+                        dataRow[dataRow.length - 1] = snByWO['SANS_WO'][i];
+                        console.log(`Ligne supplémentaire ${i + 1}: S/N sans W/O ajouté "${snByWO['SANS_WO'][i]}" dans la dernière colonne`);
+                        
+                        sheetData.push(dataRow);
+                    }
+                } else {
+                    console.log('Pas de lignes supplémentaires nécessaires');
+                }
                 
+                console.log('\n--- FINALISATION FEUILLE ---');
                 console.log(`Feuille Excel créée pour ${modelName}:`, sheetData);
+                console.log('Nombre de lignes:', sheetData.length);
+                console.log('Nombre de colonnes par ligne:');
+                sheetData.forEach((row, index) => {
+                    console.log(`  Ligne ${index}: ${row.length} colonnes - ${JSON.stringify(row)}`);
+                });
+                
                 excelData[modelName] = sheetData;
             }
         }
         
+        console.log('\n=== FIN prepareJsonForExcel ===');
         console.log('Données Excel finales:', excelData);
         return excelData;
     }
@@ -2730,15 +2886,31 @@ class TicketizyApp {
         for (const [etiquetteName, etiquetteData] of Object.entries(this.jsonData)) {
             for (const [modelName, modelData] of Object.entries(etiquetteData.model || {})) {
                 for (const [groupId, groupData] of Object.entries(modelData)) {
-                    for (const [snId, sn] of Object.entries(groupData.sn || {})) {
-                        // Le nom de l'étiquette EST le format du code-barre
-                        const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
-                        labels.push({
-                            model: modelName,
-                            wo: groupData.wo,
-                            sn: sn,
-                            format: format
-                        });
+                    if (groupData.wo && groupData.wo !== null && groupData.wo !== undefined) {
+                        // Groupe avec W/O valide - générer étiquette complète
+                        for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                            // Le nom de l'étiquette EST le format du code-barre
+                            const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
+                            labels.push({
+                                model: modelName,
+                                wo: groupData.wo,
+                                sn: sn,
+                                format: format,
+                                type: 'complete' // Étiquette complète avec W/O
+                            });
+                        }
+                    } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo.trim() === "") {
+                        // Groupe SANS_WO - générer seulement codes-barres S/N et modèle
+                        console.log(`Groupe SANS_WO détecté pour génération d'étiquettes: ${groupId}`);
+                        for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                            labels.push({
+                                model: modelName,
+                                wo: "", // Chaîne vide pour les S/N sans W/O
+                                sn: sn,
+                                format: null, // Pas de format pour les S/N sans W/O
+                                type: 'sans_wo' // Étiquette sans W/O
+                            });
+                        }
                     }
                 }
             }
@@ -2754,15 +2926,31 @@ class TicketizyApp {
 
         for (const [modelName, modelData] of Object.entries(etiquetteData.model || {})) {
             for (const [groupId, groupData] of Object.entries(modelData)) {
-                for (const [snId, sn] of Object.entries(groupData.sn || {})) {
-                    // Le nom de l'étiquette EST le format du code-barre
-                    const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
-                    labels.push({
-                        model: modelName,
-                        wo: groupData.wo,
-                        sn: sn,
-                        format: format
-                    });
+                if (groupData.wo && groupData.wo !== null && groupData.wo !== undefined) {
+                    // Groupe avec W/O valide - générer étiquette complète
+                    for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                        // Le nom de l'étiquette EST le format du code-barre
+                        const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
+                        labels.push({
+                            model: modelName,
+                            wo: groupData.wo,
+                            sn: sn,
+                            format: format,
+                            type: 'complete'
+                        });
+                    }
+                } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo.trim() === "") {
+                    // Groupe SANS_WO - générer seulement codes-barres S/N et modèle
+                    console.log(`Groupe SANS_WO détecté pour génération d'étiquettes: ${groupId}`);
+                    for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                        labels.push({
+                            model: modelName,
+                            wo: "", // Chaîne vide pour les S/N sans W/O
+                            sn: sn,
+                            format: null, // Pas de format pour les S/N sans W/O
+                            type: 'sans_wo' // Étiquette sans W/O
+                        });
+                    }
                 }
             }
         }
@@ -2776,15 +2964,31 @@ class TicketizyApp {
         if (!modelData) return labels;
 
         for (const [groupId, groupData] of Object.entries(modelData)) {
-            for (const [snId, sn] of Object.entries(groupData.sn || {})) {
-                // Le nom de l'étiquette EST le format du code-barre
-                const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
-                labels.push({
-                    model: modelName,
-                    wo: groupData.wo,
-                    sn: sn,
-                    format: format
-                });
+            if (groupData.wo && groupData.wo !== null && groupData.wo !== undefined) {
+                // Groupe avec W/O valide - générer étiquette complète
+                for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                    // Le nom de l'étiquette EST le format du code-barre
+                    const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
+                    labels.push({
+                        model: modelName,
+                        wo: groupData.wo,
+                        sn: sn,
+                        format: format,
+                        type: 'complete'
+                    });
+                }
+            } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo.trim() === "") {
+                // Groupe SANS_WO - générer seulement codes-barres S/N et modèle
+                console.log(`Groupe SANS_WO détecté pour génération d'étiquettes: ${groupId}`);
+                for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                    labels.push({
+                        model: modelName,
+                        wo: "", // Chaîne vide pour les S/N sans W/O
+                        sn: sn,
+                        format: null, // Pas de format pour les S/N sans W/O
+                        type: 'sans_wo' // Étiquette sans W/O
+                    });
+                }
             }
         }
         return labels;
@@ -2796,16 +3000,33 @@ class TicketizyApp {
         const groupData = this.jsonData[etiquetteName]?.model?.[modelName]?.[groupId];
         if (!groupData) return labels;
 
-        for (const [snId, sn] of Object.entries(groupData.sn || {})) {
-            // Le nom de l'étiquette EST le format du code-barre
-            const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
-            labels.push({
-                model: modelName,
-                wo: groupData.wo,
-                sn: sn,
-                format: format
-            });
+        if (groupData.wo && groupData.wo !== null && groupData.wo !== undefined) {
+            // Groupe avec W/O valide - générer étiquette complète
+            for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                // Le nom de l'étiquette EST le format du code-barre
+                const format = etiquetteName.replace(/XXXX/g, '${last4chars}');
+                labels.push({
+                    model: modelName,
+                    wo: groupData.wo,
+                    sn: sn,
+                    format: format,
+                    type: 'complete'
+                });
+            }
+        } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo.trim() === "") {
+            // Groupe SANS_WO - générer seulement codes-barres S/N et modèle
+            console.log(`Groupe SANS_WO détecté pour génération d'étiquettes: ${groupId}`);
+            for (const [snId, sn] of Object.entries(groupData.sn || {})) {
+                labels.push({
+                    model: modelName,
+                    wo: "", // Chaîne vide pour les S/N sans W/O
+                    sn: sn,
+                    format: null, // Pas de format pour les S/N sans W/O
+                    type: 'sans_wo' // Étiquette sans W/O
+                });
+            }
         }
+
         return labels;
     }
 
@@ -2823,21 +3044,44 @@ class TicketizyApp {
             for (const [packageNumber, packageData] of Object.entries(this.jsonData)) {
                 for (const [modelName, modelData] of Object.entries(packageData.model)) {
                     for (const [groupKey, groupData] of Object.entries(modelData)) {
-                        for (const [snKey, sn] of Object.entries(groupData.sn)) {
-                            // Le nom de l'étiquette EST le format du code-barre
-                            const format = packageNumber.replace(/XXXX/g, '${last4chars}');
-                            const labelData = {
-                                model: modelName,
-                                wo: groupData.wo,
-                                sn: sn,
-                                format: format
-                            };
+                        if (groupData.wo && groupData.wo !== null && groupData.wo !== undefined) {
+                            // Groupe avec W/O valide - générer étiquette complète
+                            for (const [snKey, sn] of Object.entries(groupData.sn)) {
+                                // Le nom de l'étiquette EST le format du code-barre
+                                const format = packageNumber.replace(/XXXX/g, '${last4chars}');
+                                const labelData = {
+                                    model: modelName,
+                                    wo: groupData.wo,
+                                    sn: sn,
+                                    format: format,
+                                    type: 'complete'
+                                };
 
-                            try {
-                                const outputPath = await ipcRenderer.invoke('generate-shipping-label', labelData);
-                                generatedLabels.push(outputPath);
-                            } catch (error) {
-                                console.error(`Erreur lors de la génération de l'étiquette pour ${sn}:`, error);
+                                try {
+                                    const outputPath = await ipcRenderer.invoke('generate-shipping-label', labelData);
+                                    generatedLabels.push(outputPath);
+                                } catch (error) {
+                                    console.error(`Erreur lors de la génération de l'étiquette pour ${sn}:`, error);
+                                }
+                            }
+                        } else if (groupData.wo === null || groupData.wo === undefined || groupData.wo === "" || groupData.wo.trim() === "") {
+                            // Groupe SANS_WO - générer seulement codes-barres S/N et modèle
+                            console.log(`Groupe SANS_WO détecté pour génération d'étiquettes: ${groupKey}`);
+                            for (const [snKey, sn] of Object.entries(groupData.sn)) {
+                                const labelData = {
+                                    model: modelName,
+                                    wo: "", // Chaîne vide pour les S/N sans W/O
+                                    sn: sn,
+                                    format: null, // Pas de format pour les S/N sans W/O
+                                    type: 'sans_wo' // Étiquette sans W/O
+                                };
+
+                                try {
+                                    const outputPath = await ipcRenderer.invoke('generate-shipping-label', labelData);
+                                    generatedLabels.push(outputPath);
+                                } catch (error) {
+                                    console.error(`Erreur lors de la génération de l'étiquette pour ${sn}:`, error);
+                                }
                             }
                         }
                     }
@@ -2904,23 +3148,33 @@ class TicketizyApp {
         }
 
         let content = '';
-        let currentModel = null;
         
         // Grouper par modèle d'appareil
         const groupedByModel = {};
+        const snsWithoutWO = []; // S/N sans W/O
+        
         this.processedFiles.forEach(result => {
-            if (result.model && result.sn && result.wo) {
-                if (!groupedByModel[result.model]) {
-                    groupedByModel[result.model] = [];
+            if (result.model && result.sn) {
+                if (result.wo) {
+                    // S/N avec W/O
+                    if (!groupedByModel[result.model]) {
+                        groupedByModel[result.model] = [];
+                    }
+                    groupedByModel[result.model].push({
+                        sn: result.sn,
+                        wo: result.wo
+                    });
+                } else {
+                    // S/N sans W/O
+                    snsWithoutWO.push({
+                        model: result.model,
+                        sn: result.sn
+                    });
                 }
-                groupedByModel[result.model].push({
-                    sn: result.sn,
-                    wo: result.wo
-                });
             }
         });
 
-        // Générer le contenu au format d'import
+        // Générer le contenu au format d'import pour les S/N avec W/O
         Object.entries(groupedByModel).forEach(([model, entries]) => {
             content += `Appareil : ${model}\n`;
             entries.forEach(entry => {
@@ -2929,12 +3183,37 @@ class TicketizyApp {
             content += '\n'; // Ligne vide entre les modèles
         });
 
+        // Ajouter une section spéciale pour les S/N sans W/O
+        if (snsWithoutWO.length > 0) {
+            content += `# S/N sans W/O détectés\n`;
+            content += `# Ces numéros de série n'ont pas de Work Order associé\n\n`;
+            
+            // Grouper par modèle
+            const snsWithoutWOByModel = {};
+            snsWithoutWO.forEach(item => {
+                if (!snsWithoutWOByModel[item.model]) {
+                    snsWithoutWOByModel[item.model] = [];
+                }
+                snsWithoutWOByModel[item.model].push(item.sn);
+            });
+            
+            Object.entries(snsWithoutWOByModel).forEach(([model, sns]) => {
+                content += `Appareil : ${model}\n`;
+                sns.forEach(sn => {
+                    content += `${sn}\n`; // Pas de ligne W/O, juste le S/N
+                });
+                content += '\n';
+            });
+        }
+
         // Ajouter un en-tête avec les informations de traitement
         const header = `# Résumé de l'extraction Gemini
 # Date de génération : ${new Date().toLocaleString('fr-FR')}
 # Nombre total d'images traitées : ${this.processedFiles.length}
+# S/N avec W/O : ${Object.values(groupedByModel).reduce((total, entries) => total + entries.length, 0)}
+# S/N sans W/O : ${snsWithoutWO.length}
 # Format : Appareil : [MODEL]
-#          [S/N] - [W/O]
+#          [S/N] - [W/O] ou [S/N] (sans W/O)
 #
 `;
         

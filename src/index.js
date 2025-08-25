@@ -339,7 +339,7 @@ async function createLabelImage(data, outputPath) {
       });
       
       // Moyen code-barre (S/N) - en dessous
-      JsBarcode(snBarcodeCanvas, data.sn || 'XXXXXXXXXXXX', {
+      JsBarcode(snBarcodeCanvas, data.sn || '', {
         format: 'CODE128',
         width: 1.5,
         height: 60,
@@ -358,15 +358,17 @@ async function createLabelImage(data, outputPath) {
     // Moyen code-barre (S/N) en dessous - encore plus remonté
     ctx.drawImage(snBarcodeCanvas, 260, 180, 400, 80);
     
-    // Ajouter seulement le W/O (rotation -90°)
-    ctx.fillStyle = 'black';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(140, 490);
-    ctx.rotate(-Math.PI / 2); // Rotation de -90 degrés
-    ctx.fillText(`W/O: ${data.wo || 'XXXXXXXX'}`, 0, 0);
-    ctx.restore();
+    // Ajouter seulement le W/O (rotation -90°) si il existe
+    if (data.wo && data.wo !== null && data.wo !== undefined && data.wo !== 'SANS_WO' && data.wo !== '' && data.wo.trim() !== '') {
+      ctx.fillStyle = 'black';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.save();
+      ctx.translate(140, 490);
+      ctx.rotate(-Math.PI / 2); // Rotation de -90 degrés
+      ctx.fillText(`W/O: ${data.wo}`, 0, 0);
+      ctx.restore();
+    }
     
     // Rotation finale de 90° de toute l'étiquette
     const rotatedCanvas = createCanvas(600, 1000); // Dimensions inversées après rotation
